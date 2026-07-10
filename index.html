@@ -1013,11 +1013,20 @@ function attachAdminListeners(){
     render();
   }, err=>console.error('Whitelist listener error:', err));
   unsubSessions = db.collection('sessions').onSnapshot(snap=>{
+    let shouldRender = false;
     snap.docChanges().forEach(change=>{
+      // While the admin is actively grading this exact student, ignore
+      // incoming snapshot data for them entirely. Otherwise our own
+      // throttled writes (from typing notes/feedback) echo straight back
+      // through this listener and force a full re-render mid-keystroke,
+      // resetting the textarea's cursor and dropping characters. Local
+      // in-memory state is already the freshest copy while grading is open.
+      if(change.doc.id === state.adminReviewingEmail) return;
       if(change.type==='removed'){ delete state.loggedInStudents[change.doc.id]; }
       else { state.loggedInStudents[change.doc.id] = change.doc.data(); }
+      shouldRender = true;
     });
-    render();
+    if(shouldRender) render();
   }, err=>console.error('Sessions listener error:', err));
   unsubTestSets = db.collection('testSets').onSnapshot(snap=>{
     state.testSets = snap.docs.map(d=>({id:d.id, title:(d.data()||{}).title||'', date:(d.data()||{}).date||''}))
