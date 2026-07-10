@@ -215,7 +215,7 @@ const ADMIN_EMAIL = 'admin@tutoryvirtualfair2026.app';
 /* =========================================================
    CONFIG / MOCK CONTENT
    ========================================================= */
-const LISTENING_DURATION = 60*60; // seconds
+const LISTENING_DURATION = 35*60; // seconds
 const READING_DURATION   = 60*60; // seconds (assumption — not yet specified by user)
 const WRITING_DURATION   = 60*60; // seconds (assumption — 20min Task1 + 40min Task2)
 const GRACE_PERIOD       = 5*60;  // seconds after time's up
@@ -793,7 +793,7 @@ const WRITING_TASKS = {
 const RULES = [
   'Make sure your internet connection and device are stable before the test begins.',
   'Have your ID card / proof of registration ready if the admin asks for it.',
-  'The test has 3 parts: Listening (60 minutes), Reading (60 minutes), Writing (60 minutes).',
+  'The test has 3 parts: Listening (35 minutes), Reading (60 minutes), Writing (60 minutes).',
   'Listening audio will be played by the admin for all participants at the same time — make sure your device volume is turned on.',
   'You can go back and check your answers at any time while that section\'s timer is still running.'
 ];
@@ -828,7 +828,11 @@ function defaultState(){
     loginChecking:false,
     testStarted:false,
     testStartTime:null,
-    currentAudioLabel:''
+    currentAudioLabel:'',
+    testSets: [],             // populated live from Firestore "testSets" once admin signs in
+    activeSetId: null,
+    activeSetTitle: '',
+    activeSetDate: ''
   };
 }
 
@@ -931,9 +935,9 @@ let state = loadState();
 function loadState(){
   try{
     const raw = localStorage.getItem(STORAGE_KEY);
-    if(raw) return ensureDemoStudent(JSON.parse(raw));
+    if(raw) return JSON.parse(raw);
   }catch(e){}
-  return ensureDemoStudent(defaultState());
+  return defaultState();
 }
 function saveState(){
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
@@ -952,6 +956,29 @@ function saveState(){
    force an immediate sync instead of waiting for the throttle.
    ========================================================= */
 let lastFsSync = 0;
+
+/* ---- Admin: Students table search. Kept as plain DOM manipulation (not
+   tied to render()) so typing never loses focus. Re-applied after every
+   full render() too, since live Firestore updates re-render the table. ---- */
+let studentSearchQuery = '';
+function filterStudentTable(query){
+  studentSearchQuery = query;
+  applyStudentSearchFilter();
+}
+function applyStudentSearchFilter(){
+  const body = document.getElementById('studentsTableBody');
+  if(!body) return;
+  const q = studentSearchQuery.trim().toLowerCase();
+  let anyVisible = false;
+  body.querySelectorAll('tr').forEach(row=>{
+    const hay = row.getAttribute('data-search') || '';
+    const match = !q || hay.includes(q);
+    row.style.display = match ? '' : 'none';
+    if(match) anyVisible = true;
+  });
+  const emptyMsg = document.getElementById('studentSearchEmpty');
+  if(emptyMsg) emptyMsg.style.display = (q && !anyVisible) ? 'block' : 'none';
+}
 function syncFirestoreThrottled(){
   const now = Date.now();
   if(now - lastFsSync < 2500) return;
@@ -978,10 +1005,11 @@ function syncStudentNow(email){
 
 /* ---- Admin dashboard + whitelist live listeners (attached after admin login) ---- */
 let unsubWhitelist=null, unsubSessions=null;
+let unsubTestSets=null;
 function attachAdminListeners(){
   if(unsubWhitelist) return; // already attached
   unsubWhitelist = db.collection('whitelist').onSnapshot(snap=>{
-    state.registeredStudents = snap.docs.map(d=>({email:d.id, name:(d.data()||{}).name||''}));
+    state.registeredStudents = snap.docs.map(d=>({email:d.id, name:(d.data()||{}).name||'', setId:(d.data()||{}).setId||null}));
     render();
   }, err=>console.error('Whitelist listener error:', err));
   unsubSessions = db.collection('sessions').onSnapshot(snap=>{
@@ -991,10 +1019,16 @@ function attachAdminListeners(){
     });
     render();
   }, err=>console.error('Sessions listener error:', err));
+  unsubTestSets = db.collection('testSets').onSnapshot(snap=>{
+    state.testSets = snap.docs.map(d=>({id:d.id, title:(d.data()||{}).title||'', date:(d.data()||{}).date||''}))
+      .sort((a,b)=> (b.date||'').localeCompare(a.date||''));
+    render();
+  }, err=>console.error('Test sets listener error:', err));
 }
 function detachAdminListeners(){
   if(unsubWhitelist){ unsubWhitelist(); unsubWhitelist=null; }
   if(unsubSessions){ unsubSessions(); unsubSessions=null; }
+  if(unsubTestSets){ unsubTestSets(); unsubTestSets=null; }
 }
 
 /* ---- Global "has the test started" listener — runs for every visitor,
@@ -1004,10 +1038,13 @@ db.collection('control').doc('live').onSnapshot(snap=>{
   const wasStarted = state.testStarted;
   state.testStarted = !!data.testStarted;
   state.testStartTime = data.testStartTime || null;
+  state.activeSetId = data.activeSetId || null;
+  state.activeSetTitle = data.activeSetTitle || '';
+  state.activeSetDate = data.activeSetDate || '';
   if(!wasStarted && state.testStarted){
     const st = currentStudent();
     if(st && st.currentSection==='waiting'){
-      beginSection(st,'listening');
+      beginSection(st,'listening', state.testStartTime);
       syncStudentNow(st.email);
     }
   }
@@ -1079,8 +1116,13 @@ function statusBadge(status){
 async function loginStudent(email){
   email = (email||'').trim().toLowerCase();
   if(!email){ alert('Please enter your email first.'); return; }
+  if(!state.activeSetId){
+    alert("There's no open test session right now. Please check with the admin.");
+    return;
+  }
   state.loginChecking = true;
   state.loginNotRegistered = false;
+  state.loginWrongSet = false;
   render();
   let wDoc;
   try{
@@ -1092,29 +1134,34 @@ async function loginStudent(email){
     alert('Failed to connect to the server. Check your internet connection and try again.');
     return;
   }
-  if(!wDoc.exists){
+  const wData = wDoc.exists ? (wDoc.data()||{}) : null;
+  if(!wDoc.exists || wData.setId !== state.activeSetId){
     state.currentStudentEmail = null;
     state.loginAttemptEmail = email;
-    state.loginNotRegistered = true;
+    state.loginNotRegistered = !wDoc.exists;
+    state.loginWrongSet = wDoc.exists && wData.setId !== state.activeSetId;
     state.loginChecking = false;
     render();
     return;
   }
-  const name = (wDoc.data()||{}).name || email;
+  const name = wData.name || email;
   try{
     const sDoc = await db.collection('sessions').doc(email).get();
     let student;
-    if(sDoc.exists){
+    if(sDoc.exists && sDoc.data().setId === state.activeSetId){
       student = sDoc.data(); // rejoin: resume existing progress (same or different device)
     }else{
       student = newStudent(email, name);
+      student.setId = state.activeSetId;
+      student.setTitle = state.activeSetTitle;
+      student.setDate = state.activeSetDate;
       await db.collection('sessions').doc(email).set(student);
     }
     state.loggedInStudents[email] = student;
     state.currentStudentEmail = email;
     // if test already started and student just joining waiting room, drop them straight into listening
     if(state.testStarted && student.currentSection==='waiting'){
-      beginSection(student,'listening');
+      beginSection(student,'listening', state.testStartTime);
     }
     state.loginChecking = false;
     saveState();
@@ -1135,10 +1182,14 @@ function logoutStudent(){
   render();
 }
 
-function beginSection(student, key){
+function beginSection(student, key, startTime){
   student.currentSection = key;
   student.sections[key].status = 'in_progress';
-  student.sections[key].startTime = Date.now();
+  // For Listening specifically, late joiners are synced to when the admin
+  // pressed "Test Start" (not their own login moment) since the audio is
+  // played live for the whole room — everyone's Listening timer matches
+  // how far the room has actually gotten, not a fresh 35 minutes each.
+  student.sections[key].startTime = startTime || Date.now();
 }
 
 function submitSection(section){
@@ -1173,6 +1224,7 @@ function autoSubmitSection(student, key){
 /* ---- Admin actions ---- */
 async function adminStartTest(){
   if(state.testStarted) return;
+  if(!state.activeSetId){ alert('Select (or create) an active Test Set first — see the "Test Sets" card above.'); return; }
   if(!confirm('Start the test now for all students who are logged in?')) return;
   try{
     await db.collection('control').doc('live').set({
@@ -1184,6 +1236,49 @@ async function adminStartTest(){
   }catch(err){
     console.error(err);
     alert('Failed to start the test. Check your internet connection and try again.');
+  }
+}
+
+/* ---- Test Sets: named, dated batches. Only one is "active" at a time —
+   whichever set is active is the one students can log into, the one new
+   registrations/imports get tagged with, and the one shown on reports. ---- */
+async function adminCreateTestSet(){
+  const titleInput = document.getElementById('setTitleInput');
+  const dateInput = document.getElementById('setDateInput');
+  const title = titleInput.value.trim();
+  const date = dateInput.value;
+  if(!title){ alert('Give this test set a name first, e.g. "Tutory Virtual Fair — 11 July 2026".'); return; }
+  try{
+    const ref = await db.collection('testSets').add({
+      title, date,
+      createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    titleInput.value = '';
+    dateInput.value = '';
+    if(!state.activeSetId){
+      // first set ever created — make it active automatically so admins
+      // don't have to remember an extra click
+      await adminSetActiveSet(ref.id, title, date, true);
+    }
+  }catch(err){
+    console.error(err);
+    alert('Failed to create the test set. Check your internet connection and try again.');
+  }
+}
+async function adminSetActiveSet(setId, title, date, skipConfirm){
+  if(setId === state.activeSetId) return;
+  if(!skipConfirm && !confirm(`Make "${title}" the active test set?\n\nStudents will only be able to log in if they were registered under this set. The test-start status resets to "not started" for the new set.`)) return;
+  try{
+    await db.collection('control').doc('live').set({
+      activeSetId: setId,
+      activeSetTitle: title,
+      activeSetDate: date || '',
+      testStarted: false,
+      testStartTime: null
+    }, {merge:true});
+  }catch(err){
+    console.error(err);
+    alert('Failed to switch the active test set. Check your internet connection and try again.');
   }
 }
 
@@ -1200,6 +1295,7 @@ function adminClearAudio(){
 }
 
 async function adminRegisterStudent(){
+  if(!state.activeSetId){ alert('Select (or create) an active Test Set first — see the "Test Sets" card above.'); return; }
   const name = document.getElementById('regName').value.trim();
   const email = document.getElementById('regEmail').value.trim().toLowerCase();
   if(!name || !email){ alert('Please fill in both name and email first.'); return; }
@@ -1208,8 +1304,10 @@ async function adminRegisterStudent(){
   try{
     const ref = db.collection('whitelist').doc(email);
     const existing = await ref.get();
-    if(existing.exists){ alert('This email is already registered.'); if(btn) btn.disabled=false; return; }
-    await ref.set({name, addedAt: firebase.firestore.FieldValue.serverTimestamp()});
+    if(existing.exists && (existing.data()||{}).setId === state.activeSetId){
+      alert('This email is already registered for the current test set.'); if(btn) btn.disabled=false; return;
+    }
+    await ref.set({name, setId: state.activeSetId, addedAt: firebase.firestore.FieldValue.serverTimestamp()});
     document.getElementById('regName').value='';
     document.getElementById('regEmail').value='';
     // state.registeredStudents updates automatically via the whitelist listener
@@ -1226,6 +1324,17 @@ async function adminRemoveRegistered(email){
   }catch(err){
     console.error(err);
     alert('Failed to remove from the server. Check your internet connection and try again.');
+  }
+}
+async function adminDeleteSession(email, name){
+  if(!confirm(`Delete ${name || email}'s test session (login, answers, timers, grading)? This does NOT remove them from the whitelist — they can log in again and start fresh. This cannot be undone.`)) return;
+  try{
+    await db.collection('sessions').doc(email).delete();
+    delete state.loggedInStudents[email];
+    render();
+  }catch(err){
+    console.error(err);
+    alert('Failed to delete from the server. Check your internet connection and try again.');
   }
 }
 
@@ -1287,13 +1396,14 @@ function parseBulkImportText(raw){
   return rows;
 }
 async function adminBulkImport(){
+  if(!state.activeSetId){ alert('Select (or create) an active Test Set first — see the "Test Sets" card above.'); return; }
   const textarea = document.getElementById('bulkImportText');
   const rows = parseBulkImportText(textarea.value);
   if(rows.length===0){
     alert("Couldn't find any valid email addresses in the pasted text. Paste one student per line, with their name and email included.");
     return;
   }
-  if(!confirm(`Import ${rows.length} student(s) into the whitelist? Emails already registered will be skipped.`)) return;
+  if(!confirm(`Import ${rows.length} student(s) into "${state.activeSetTitle}"? Emails already registered for this set will be skipped.`)) return;
   const btn = document.getElementById('bulkImportBtn');
   if(btn) btn.disabled = true;
   let added = 0, skipped = 0, failed = 0;
@@ -1301,8 +1411,8 @@ async function adminBulkImport(){
     try{
       const ref = db.collection('whitelist').doc(email);
       const existing = await ref.get();
-      if(existing.exists){ skipped++; continue; }
-      await ref.set({name, addedAt: firebase.firestore.FieldValue.serverTimestamp()});
+      if(existing.exists && (existing.data()||{}).setId === state.activeSetId){ skipped++; continue; }
+      await ref.set({name, setId: state.activeSetId, addedAt: firebase.firestore.FieldValue.serverTimestamp()});
       added++;
     }catch(err){
       console.error('Bulk import failed for', email, err);
@@ -1311,7 +1421,7 @@ async function adminBulkImport(){
   }
   if(btn) btn.disabled = false;
   textarea.value = '';
-  alert(`Import complete.\n\nAdded: ${added}\nAlready registered (skipped): ${skipped}\nFailed: ${failed}`);
+  alert(`Import complete.\n\nAdded: ${added}\nAlready registered for this set (skipped): ${skipped}\nFailed: ${failed}`);
 }
 
 function setRole(role){
@@ -1422,6 +1532,7 @@ function render(){
   app.style.maxWidth = testSectionActive ? '1760px' : '1180px';
   app.innerHTML = html;
   // restore focus-safe listeners (none needed; using inline handlers)
+  applyStudentSearchFilter();
 }
 
 /* ---------- STUDENT FLOW ---------- */
@@ -1430,7 +1541,7 @@ function renderStudentFlow(){
   const student = currentStudent();
   if(!student) return renderLogin();
   if(state.testStarted && student.currentSection==='waiting'){
-    beginSection(student,'listening');
+    beginSection(student,'listening', state.testStartTime);
     saveState();
   }
   switch(student.currentSection){
@@ -1450,6 +1561,7 @@ function renderLanding(){
       <div class="landing-logo">T</div>
       <h1 class="landing-title">Welcome to Tutory Mock Up Test</h1>
       <p class="muted">Virtual Fair 2026 — Listening, Reading &amp; Writing Test</p>
+      ${state.activeSetTitle ? `<p class="muted" style="margin-top:2px;">Current session: <strong>${esc(state.activeSetTitle)}</strong>${state.activeSetDate?' · '+esc(state.activeSetDate):''}</p>` : ''}
       <button class="btn-primary" style="margin-top:22px;padding:14px 34px;font-size:15px;" onclick="dismissLanding()">Start Test</button>
     </div>
     <button class="gear-btn" title="Admin panel" onclick="setRole('adminlogin')">⚙️</button>
@@ -1517,6 +1629,11 @@ function renderLogin(){
       <div class="donts" style="margin-top:14px;">
         <strong>Email "${attempted}" is not registered.</strong>
         <p style="margin:8px 0 0;color:#7a1230;">Please contact the admin via our WhatsApp group so you can be registered, then try logging in again.</p>
+      </div>` : ''}
+    ${state.loginWrongSet ? `
+      <div class="donts" style="margin-top:14px;">
+        <strong>Email "${attempted}" isn't registered for the current test session${state.activeSetTitle?' ("'+esc(state.activeSetTitle)+'")':''}.</strong>
+        <p style="margin:8px 0 0;color:#7a1230;">Please contact the admin to check which session you're registered for.</p>
       </div>` : ''}
     <div class="field" style="margin-top:14px;">
       <label>Email</label>
@@ -1958,7 +2075,8 @@ function ensureGrading(student){
       speaking:{ criteria:{FC:'',LR:'',GRA:'',PRON:''} },
       notes:'',
       reportSent:false,
-      reportSentAt:null
+      reportSentAt:null,
+      locked:false
     };
   }
 }
@@ -1981,15 +2099,43 @@ function renderAdmin(){
     if(student){ ensureGrading(student); return renderGradingPage(student); }
     state.adminReviewingEmail = null;
   }
-  const students = Object.values(state.loggedInStudents);
-  students.forEach(ensureGrading);
+  const allStudents = Object.values(state.loggedInStudents);
+  allStudents.forEach(ensureGrading);
+  // Everything on this dashboard is scoped to the currently active Test Set,
+  // so different sessions/dates never mix in the same view or report.
+  const students = allStudents.filter(s=>s.setId===state.activeSetId);
+  const registeredForSet = state.registeredStudents.filter(r=>r.setId===state.activeSetId);
   const completedCount = students.filter(s=>s.currentSection==='completed').length;
   return `
   <div class="row" style="justify-content:flex-end;margin-bottom:10px;">
     <button class="btn-outline btn-sm" onclick="adminLogout()">⎋ Sign out of Admin</button>
   </div>
+
+  <div class="card">
+    <h3>Test Sets</h3>
+    <p class="muted">Create a named, dated session (e.g. "Tutory Virtual Fair — 11 July 2026") and mark it active. Registration, logins, and reports are all scoped to whichever set is active — switching sets keeps each event's data completely separate.</p>
+    ${state.activeSetId
+      ? `<div class="rules-list" style="margin-top:12px;"><strong>Active set:</strong> ${esc(state.activeSetTitle)}${state.activeSetDate?' · '+esc(state.activeSetDate):''}</div>`
+      : `<div class="donts" style="margin-top:12px;"><strong>No active test set yet.</strong> Create one below before registering students or starting a test.</div>`}
+    <div class="row" style="margin-top:12px;">
+      <input id="setTitleInput" placeholder="Set name, e.g. Tutory Virtual Fair — 11 July 2026" style="flex:2;min-width:220px;">
+      <input id="setDateInput" type="date" style="flex:1;min-width:150px;">
+      <button class="btn-secondary" onclick="adminCreateTestSet()">+ Create Set</button>
+    </div>
+    ${state.testSets.length>0 ? `
+    <div style="margin-top:14px;">
+      ${state.testSets.map(ts=>`
+        <div class="row" style="align-items:center;justify-content:space-between;border:1px solid var(--border);border-radius:9px;padding:8px 14px;margin-bottom:6px;">
+          <div><strong>${esc(ts.title)}</strong>${ts.date?` <span class="muted">· ${esc(ts.date)}</span>`:''}</div>
+          ${ts.id===state.activeSetId
+            ? `<span class="pill pill-submitted">✓ Active</span>`
+            : `<button class="btn-outline btn-sm" onclick="adminSetActiveSet('${ts.id}','${esc(ts.title)}','${esc(ts.date||'')}')">Set Active</button>`}
+        </div>`).join('')}
+    </div>` : ''}
+  </div>
+
   <div class="stat-grid">
-    <div class="stat-box"><div class="num">${state.registeredStudents.length}</div><div class="lbl">Registered students</div></div>
+    <div class="stat-box"><div class="num">${registeredForSet.length}</div><div class="lbl">Registered students</div></div>
     <div class="stat-box"><div class="num">${students.length}</div><div class="lbl">Logged in</div></div>
     <div class="stat-box"><div class="num">${completedCount}</div><div class="lbl">Completed test</div></div>
     <div class="stat-box"><div class="num">${state.testStarted ? '<span id="globalElapsed">'+formatTime((Date.now()-state.testStartTime)/1000)+'</span>' : '—'}</div><div class="lbl">Elapsed since start</div></div>
@@ -2024,7 +2170,7 @@ function renderAdmin(){
       <button id="regSubmitBtn" class="btn-secondary" onclick="adminRegisterStudent()">+ Register</button>
     </div>
     <div style="margin-top:10px;">
-      ${state.registeredStudents.map(r=>`<span class="chip">${esc(r.name)} · ${esc(r.email)} <button onclick="adminRemoveRegistered('${r.email}')" title="Remove">✕</button></span>`).join('')}
+      ${registeredForSet.map(r=>`<span class="chip">${esc(r.name)} · ${esc(r.email)} <button onclick="adminRemoveRegistered('${r.email}')" title="Remove">✕</button></span>`).join('')}
     </div>
   </div>
 
@@ -2045,13 +2191,16 @@ function renderAdmin(){
   <div class="card">
     <h3>Students (${students.length})</h3>
     ${students.length===0 ? `<p class="muted">No students have logged in yet.</p>` : `
+    <div class="field" style="max-width:320px;">
+      <input type="text" id="studentSearchInput" placeholder="🔎 Search by name or email..." value="${esc(studentSearchQuery)}" oninput="filterStudentTable(this.value)">
+    </div>
     <table>
       <thead><tr>
-        <th>Name</th><th>Email</th><th>Login</th><th>Listening</th><th>Reading</th><th>Writing</th><th>Review</th>
+        <th>Name</th><th>Email</th><th>Login</th><th>Listening</th><th>Reading</th><th>Writing</th><th>Review</th><th></th>
       </tr></thead>
-      <tbody>
+      <tbody id="studentsTableBody">
         ${students.map(s=>`
-          <tr>
+          <tr data-search="${esc((s.name+' '+s.email).toLowerCase())}">
             <td>${esc(s.name)}</td>
             <td>${esc(s.email)}</td>
             <td>${new Date(s.loginTime).toLocaleTimeString()}</td>
@@ -2061,9 +2210,11 @@ function renderAdmin(){
               return `<td>${statusBadge(sec.status)}${timer}</td>`;
             }).join('')}
             <td>${allSectionsDone(s) ? `<button class="btn-secondary btn-sm" onclick="openGrading('${s.email}')">📝 Review${s.grading.reportSent?' ✓':''}</button>` : `<span class="muted" style="font-size:12px;">not yet complete</span>`}</td>
+            <td><button class="btn-outline btn-sm" title="Delete this student's session/answers" onclick="adminDeleteSession('${s.email}','${esc(s.name)}')">🗑️</button></td>
           </tr>`).join('')}
       </tbody>
-    </table>`}
+    </table>
+    <p class="muted" id="studentSearchEmpty" style="display:none;margin-top:10px;">No students match your search.</p>`}
   </div>
   `;
 }
@@ -2143,16 +2294,33 @@ function sendReport(){
 function printReport(){
   window.print();
 }
+function adminLockGrading(){
+  const student = getStudent(state.adminReviewingEmail);
+  if(!student) return;
+  if(!confirm('Lock this result? Scores, comments, and notes will become read-only until you click "Edit Result" again.')) return;
+  student.grading.locked = true;
+  saveState();
+  syncStudentNow(student.email);
+  render();
+}
+function adminUnlockGrading(){
+  const student = getStudent(state.adminReviewingEmail);
+  if(!student) return;
+  student.grading.locked = false;
+  saveState();
+  syncStudentNow(student.email);
+  render();
+}
 
-function renderCriterionRow(criterion, value, changeHandler){
+function renderCriterionRow(criterion, value, changeHandler, locked){
   const nar = criterionNarrative(criterion, value);
   return `
   <div class="rubric-row">
     <div class="row" style="justify-content:space-between;align-items:center;flex-wrap:nowrap;gap:10px;">
       <label style="font-weight:700;font-size:13.5px;">${esc(criterion.label)}</label>
-      <span class="no-print" style="flex:0 0 150px;">
-        <select onchange="${changeHandler}">${bandOptionsHTML(criterion, value)}</select>
-      </span>
+      ${locked
+        ? `<span style="flex:0 0 150px;text-align:right;font-weight:700;">${value?esc(value):'—'}</span>`
+        : `<span class="no-print" style="flex:0 0 150px;"><select onchange="${changeHandler}">${bandOptionsHTML(criterion, value)}</select></span>`}
     </div>
     ${nar
       ? `<p class="rubric-narrative">In <strong>${esc(criterion.label)}</strong>, you have ${esc(nar.have)}. ${nar.grow ? 'You can work on: '+esc(nar.grow)+'.' : 'You have reached the top band for this criterion — keep up the consistency!'}</p>`
@@ -2160,7 +2328,7 @@ function renderCriterionRow(criterion, value, changeHandler){
   </div>`;
 }
 
-function renderWritingGradingBlock(student, task){
+function renderWritingGradingBlock(student, task, locked){
   const wsec = student.sections.writing;
   const g = student.grading.writing;
   const rawText = wsec.answers[task] || '';
@@ -2170,19 +2338,19 @@ function renderWritingGradingBlock(student, task){
   return `
   <div style="margin-bottom:24px;">
     <h4>Writing ${taskLabel} ${band!==null ? `<span class="pill pill-progress" style="margin-left:6px;">Band ${band}</span>` : ''}</h4>
-    <p class="muted no-print" style="font-size:12.5px;">Select part of the student's answer below, then click "+ Add Comment".</p>
+    ${locked ? '' : `<p class="muted no-print" style="font-size:12.5px;">Select part of the student's answer below, then click "+ Add Comment".</p>`}
     <div id="writingText-${task}" style="border:1px solid var(--border);border-radius:10px;padding:14px;font-size:14px;line-height:1.7;white-space:pre-line;margin-bottom:8px;">${buildHighlightedHTML(rawText, comments)}</div>
-    <button class="btn-outline btn-sm no-print" onclick="addWritingComment('${task}')">+ Add Comment on Selected Text</button>
+    ${locked ? '' : `<button class="btn-outline btn-sm no-print" onclick="addWritingComment('${task}')">+ Add Comment on Selected Text</button>`}
     ${comments.length ? `
       <div style="margin-top:10px;">
         ${comments.map((c,i)=>`
           <div style="background:var(--brand-light);border-radius:8px;padding:10px 12px;margin-bottom:6px;font-size:13px;">
             <strong>#${i+1}</strong> "${esc(c.quote)}" — ${esc(c.comment)}
-            <button class="no-print" style="background:none;color:var(--danger);float:right;font-size:12px;" onclick="removeWritingComment('${task}',${i})">Delete</button>
+            ${locked ? '' : `<button class="no-print" style="background:none;color:var(--danger);float:right;font-size:12px;" onclick="removeWritingComment('${task}',${i})">Delete</button>`}
           </div>`).join('')}
       </div>` : ''}
     <div style="margin-top:14px;">
-      ${WRITING_CRITERIA.map(c=>renderCriterionRow(c, student.grading.writing.criteria[task][c.key], `setWritingCriteria('${task}','${c.key}', this.value)`)).join('')}
+      ${WRITING_CRITERIA.map(c=>renderCriterionRow(c, student.grading.writing.criteria[task][c.key], `setWritingCriteria('${task}','${c.key}', this.value)`, locked)).join('')}
     </div>
   </div>`;
 }
@@ -2200,6 +2368,7 @@ function renderGradingPage(student){
   const rWrong = readingWrongDetails(student.sections.reading);
   const dateSource = student.sections.listening.startTime || student.loginTime;
   const dateTaken = new Date(dateSource).toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'});
+  const locked = !!g.locked;
 
   return `
   <div class="no-print" style="margin-bottom:14px;">
@@ -2213,7 +2382,8 @@ function renderGradingPage(student){
         <div class="report-brand">Tutory English</div>
         <div class="report-subtitle">Virtual Fair Mock Up Test Result</div>
       </div>
-      <div style="margin-left:auto;">
+      <div style="margin-left:auto;display:flex;gap:6px;align-items:center;">
+        ${locked ? `<span class="pill pill-submitted no-print">🔒 Locked</span>` : `<span class="pill pill-progress no-print">✏️ Editable</span>`}
         ${g.reportSent ? `<span class="pill pill-submitted no-print">✓ Sent ${new Date(g.reportSentAt).toLocaleString()}</span>` : `<span class="pill pill-pending no-print">Not sent yet</span>`}
       </div>
     </div>
@@ -2223,6 +2393,7 @@ function renderGradingPage(student){
       <div><span class="lbl3">Name</span><div class="val3">${esc(student.name)}</div></div>
       <div><span class="lbl3">Date Taken</span><div class="val3">${dateTaken}</div></div>
       <div><span class="lbl3">Email</span><div class="val3">${esc(student.email)}</div></div>
+      <div><span class="lbl3">Test Set</span><div class="val3">${student.setTitle ? esc(student.setTitle) : '—'}</div></div>
     </div>
 
     <hr>
@@ -2249,18 +2420,20 @@ function renderGradingPage(student){
 
     <hr>
     <h3>Writing — Detailed Feedback</h3>
-    ${renderWritingGradingBlock(student,'task1')}
-    ${renderWritingGradingBlock(student,'task2')}
+    ${renderWritingGradingBlock(student,'task1',locked)}
+    ${renderWritingGradingBlock(student,'task2',locked)}
 
     <hr>
     <h3>Speaking — Detailed Feedback</h3>
     <p class="muted" style="font-size:12.5px;">Speaking is assessed manually by the teacher (no recorded speaking submission in this system).</p>
-    ${SPEAKING_CRITERIA.map(c=>renderCriterionRow(c, g.speaking.criteria[c.key], `setSpeakingCriteria('${c.key}', this.value)`)).join('')}
+    ${SPEAKING_CRITERIA.map(c=>renderCriterionRow(c, g.speaking.criteria[c.key], `setSpeakingCriteria('${c.key}', this.value)`, locked)).join('')}
 
     <hr>
     <h3>Additional Notes</h3>
-    <textarea class="no-print" rows="4" placeholder="Additional notes from the teacher..." oninput="setGradingNotes(this.value)">${esc(g.notes)}</textarea>
-    ${g.notes ? `<p style="font-size:13.5px;line-height:1.6;">${esc(g.notes)}</p>` : ''}
+    ${locked
+      ? (g.notes ? `<p style="font-size:13.5px;line-height:1.6;">${esc(g.notes)}</p>` : `<p class="muted" style="font-size:13px;">No additional notes.</p>`)
+      : `<textarea class="no-print" rows="4" placeholder="Additional notes from the teacher..." oninput="setGradingNotes(this.value)">${esc(g.notes)}</textarea>
+         ${g.notes ? `<p style="font-size:13.5px;line-height:1.6;">${esc(g.notes)}</p>` : ''}`}
 
     <div class="signature-row">
       <div class="signature-block">
@@ -2273,6 +2446,9 @@ function renderGradingPage(student){
   </div>
 
   <div class="no-print row" style="margin-top:16px;">
+    ${locked
+      ? `<button class="btn-secondary" onclick="adminUnlockGrading()">✏️ Edit Result</button>`
+      : `<button class="btn-primary" onclick="adminLockGrading()">🔒 Save &amp; Lock Result</button>`}
     <button class="btn-outline" onclick="printReport()">🖨️ Print / Save as PDF</button>
     <button class="btn-primary" onclick="sendReport()">✉️ Send to Student Email</button>
   </div>
