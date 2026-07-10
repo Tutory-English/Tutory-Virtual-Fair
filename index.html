@@ -177,6 +177,8 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<!-- SheetJS: lets the admin upload the student list as a .csv/.xlsx/.xls file -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
 <div id="brand-bar">
   <div class="logo">T</div>
@@ -1231,22 +1233,55 @@ async function adminRemoveRegistered(email){
    Handles tab-separated (Excel/Sheets paste) or comma-separated (CSV paste)
    lines with any number/order of extra columns — it just looks for the one
    field that's a valid email, and the best-looking name among the rest. ---- */
+/* ---- Bulk import: read an uploaded .csv/.xlsx/.xls file and drop its
+   contents into the paste textarea, so it goes through the exact same
+   parsing + import path as a manual paste. ---- */
+async function handleBulkImportFile(file){
+  if(!file) return;
+  const lower = file.name.toLowerCase();
+  const textarea = document.getElementById('bulkImportText');
+  try{
+    let text;
+    if(lower.endsWith('.csv')){
+      text = await file.text();
+    }else if(lower.endsWith('.xlsx') || lower.endsWith('.xls')){
+      if(typeof XLSX === 'undefined'){
+        alert('The Excel-reading library failed to load. Check your internet connection and try again, or save the file as .csv instead.');
+        return;
+      }
+      const buf = await file.arrayBuffer();
+      const wb = XLSX.read(buf, {type:'array'});
+      const sheet = wb.Sheets[wb.SheetNames[0]];
+      text = XLSX.utils.sheet_to_csv(sheet);
+    }else{
+      alert('Please upload a .csv, .xlsx, or .xls file.');
+      return;
+    }
+    textarea.value = text;
+  }catch(err){
+    console.error(err);
+    alert("Couldn't read that file. Please make sure it's a valid CSV or Excel file.");
+  }
+}
 function parseBulkImportText(raw){
-  const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  // Finds an email ANYWHERE in the line rather than requiring a specific
+  // delimiter — handles tab-separated (Excel/Sheets paste), comma-separated
+  // (CSV paste), or plain multi-space-aligned paste equally well.
+  const emailSearchRe = /[^\s,;\t]+@[^\s,;\t]+\.[^\s,;\t]+/;
   const lines = raw.split('\n').map(l=>l.trim()).filter(Boolean);
   const rows = [];
   for(const line of lines){
-    const parts = (line.includes('\t') ? line.split('\t') : line.split(','))
-      .map(p=>p.trim()).filter(p=>p.length>0);
-    let email = null;
-    const others = [];
-    parts.forEach(p=>{
-      if(!email && emailRe.test(p)) email = p.toLowerCase();
-      else others.push(p);
-    });
-    if(!email) continue; // skip lines with no valid email — e.g. a header row
-    const nameCandidates = others.filter(p=>/[a-zA-Z]/.test(p) && !/^\d+$/.test(p));
-    const name = (nameCandidates.sort((a,b)=>b.length-a.length)[0]) || email;
+    const match = line.match(emailSearchRe);
+    if(!match) continue; // skip lines with no email — e.g. a header row
+    const email = match[0].toLowerCase().replace(/[.,;]+$/,'');
+    // whatever's left on the line, once the email itself is removed
+    let rest = (line.slice(0, match.index) + ' ' + line.slice(match.index + match[0].length));
+    // drop a leading row number ("1", "1.", "1)") and any phone-number-looking tokens
+    rest = rest
+      .split(/[\t,;]+|\s{2,}/) // split on tabs/commas/semicolons or runs of 2+ spaces
+      .map(p=>p.trim())
+      .filter(p=>p.length>0 && /[a-zA-Z]/.test(p) && !/^\d+[.)]?$/.test(p) && !/^[+\d][\d\s-]{5,}$/.test(p));
+    const name = rest.sort((a,b)=>b.length-a.length)[0] || email;
     rows.push({name, email});
   }
   return rows;
@@ -1995,10 +2030,15 @@ function renderAdmin(){
 
   <div class="card">
     <h3>Bulk Import Students</h3>
-    <p class="muted">Select the Full Name and Email columns in your spreadsheet, copy them, and paste below (one student per line). Extra columns like No. or WhatsApp Number are fine — they'll be ignored automatically.</p>
+    <p class="muted">Upload your student list as a CSV or Excel file, or copy the Full Name and Email columns from your spreadsheet and paste them below (one student per line). Extra columns like No. or WhatsApp Number are fine — they'll be ignored automatically.</p>
+    <div class="field">
+      <label>Upload CSV / Excel file</label>
+      <input type="file" id="bulkImportFile" accept=".csv,.xlsx,.xls" onchange="handleBulkImportFile(this.files[0])">
+    </div>
+    <p class="muted" style="margin:10px 0 6px;">...or paste directly:</p>
     <textarea id="bulkImportText" rows="8" placeholder="Gita Fitri Febri Utami	gitafitrifu@gmail.com&#10;Priya Tri Nanda	priyatrinanda30@gmail.com&#10;..."></textarea>
     <div class="row" style="margin-top:10px;">
-      <button id="bulkImportBtn" class="btn-secondary" onclick="adminBulkImport()">⬆️ Import Pasted List</button>
+      <button id="bulkImportBtn" class="btn-secondary" onclick="adminBulkImport()">⬆️ Import List</button>
     </div>
   </div>
 
