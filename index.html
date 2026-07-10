@@ -772,6 +772,13 @@ const WRITING_TASK1_DIAGRAM_SVG = `
   <text x="380" y="456" text-anchor="middle" font-size="12" fill="#333">Thousands of kilometres</text>
 </svg>`;
 
+// Task 1 diagram, embedded directly from Google Drive (file must be shared
+// as "Anyone with the link — Viewer" or it won't load). Using the Drive file
+// ID means the image can be replaced/updated later in Drive without ever
+// having to touch or re-upload this HTML file.
+const WRITING_TASK1_DRIVE_FILE_ID = '1bqhUgiQI5hP6QXO2BHQFsC73CdRxU1DK';
+const WRITING_TASK1_IMAGE_URL = `https://drive.google.com/thumbnail?id=${WRITING_TASK1_DRIVE_FILE_ID}&sz=w2000`;
+
 const WRITING_TASKS = {
   task1:{
     title:'Writing Task 1',
@@ -779,7 +786,7 @@ const WRITING_TASKS = {
     prompt:'The diagram below shows how one type of desert, known as a rain-shadow desert, is formed. Summarise the information by selecting and reporting the main features, and make comparisons where relevant.',
     minWords:150,
     hasChart:true,
-    chartCaption:'Diagram: formation of a rain-shadow desert (image coming soon — not yet uploaded)'
+    chartCaption:'Diagram: formation of a rain-shadow desert'
   },
   task2:{
     title:'Writing Task 2',
@@ -1029,7 +1036,7 @@ function attachAdminListeners(){
     if(shouldRender) render();
   }, err=>console.error('Sessions listener error:', err));
   unsubTestSets = db.collection('testSets').onSnapshot(snap=>{
-    state.testSets = snap.docs.map(d=>({id:d.id, title:(d.data()||{}).title||'', date:(d.data()||{}).date||''}))
+    state.testSets = snap.docs.map(d=>({id:d.id, title:(d.data()||{}).title||'', date:(d.data()||{}).date||'', status:(d.data()||{}).status||''}))
       .sort((a,b)=> (b.date||'').localeCompare(a.date||''));
     render();
   }, err=>console.error('Test sets listener error:', err));
@@ -1288,6 +1295,57 @@ async function adminSetActiveSet(setId, title, date, skipConfirm){
   }catch(err){
     console.error(err);
     alert('Failed to switch the active test set. Check your internet connection and try again.');
+  }
+}
+// Marks a set as finished. Keeps all its data (students, results, reports)
+// intact for later reference, but takes it out of the active rotation so
+// nobody accidentally logs in for a session that's already over.
+async function adminMarkSetDone(setId){
+  try{
+    await db.collection('testSets').doc(setId).set({status:'done'}, {merge:true});
+    if(state.activeSetId === setId){
+      await db.collection('control').doc('live').set({
+        activeSetId: null, activeSetTitle:'', activeSetDate:'',
+        testStarted:false, testStartTime:null
+      }, {merge:true});
+    }
+  }catch(err){
+    console.error(err);
+    alert('Failed to mark the test set as done. Check your internet connection and try again.');
+  }
+}
+// Undoes "Mark Session Done" in case it was clicked by mistake.
+async function adminReopenTestSet(setId){
+  try{
+    await db.collection('testSets').doc(setId).set({status: firebase.firestore.FieldValue.delete()}, {merge:true});
+  }catch(err){
+    console.error(err);
+    alert('Failed to reopen the test set. Check your internet connection and try again.');
+  }
+}
+// Permanently deletes a test set: the set itself, every student registered
+// under it (whitelist), and every saved result (sessions). Cannot be undone.
+async function adminDeleteTestSet(setId, title){
+  if(!confirm(`Delete "${title}"?\n\nThis will permanently remove this test set AND every registered student and saved result under it. This cannot be undone.`)) return;
+  try{
+    const [wlSnap, sessSnap] = await Promise.all([
+      db.collection('whitelist').where('setId','==',setId).get(),
+      db.collection('sessions').where('setId','==',setId).get()
+    ]);
+    const batch = db.batch();
+    wlSnap.docs.forEach(d=>batch.delete(d.ref));
+    sessSnap.docs.forEach(d=>batch.delete(d.ref));
+    batch.delete(db.collection('testSets').doc(setId));
+    await batch.commit();
+    if(state.activeSetId === setId){
+      await db.collection('control').doc('live').set({
+        activeSetId: null, activeSetTitle:'', activeSetDate:'',
+        testStarted:false, testStartTime:null
+      }, {merge:true});
+    }
+  }catch(err){
+    console.error(err);
+    alert('Failed to delete the test set. Check your internet connection and try again.');
   }
 }
 
@@ -2011,6 +2069,20 @@ function onReadingInput(num,val){
   if(dot) dot.classList.toggle('answered', !!val.trim());
 }
 
+// Task 1's diagram, embedded straight from Google Drive so it's always the
+// live, up-to-date image (never baked/converted into this file). If the
+// Drive embed ever fails to load (wrong sharing permission, offline, etc.)
+// this quietly falls back to the redrawn placeholder diagram instead of
+// showing a broken-image icon during a live test.
+function renderTask1Diagram(){
+  return `
+  <div style="border:1px solid var(--border);border-radius:10px;padding:10px;margin-bottom:12px;">
+    <img src="${WRITING_TASK1_IMAGE_URL}" alt="Diagram: formation of a rain-shadow desert"
+      style="max-width:100%;display:block;margin:0 auto;"
+      onerror="this.style.display='none'; document.getElementById('task1DiagramFallback').style.display='block';">
+    <div id="task1DiagramFallback" style="display:none;">${WRITING_TASK1_DIAGRAM_SVG}</div>
+  </div>`;
+}
 function renderWriting(student){
   const sec = student.sections.writing;
   const activeTask = sec.activeTask || 'task1';
@@ -2029,7 +2101,7 @@ function renderWriting(student){
         <h4>${task.title}</h4>
         <p class="muted" style="font-style:italic;">${esc(task.instructions||'')}</p>
         <p>${esc(task.prompt)}</p>
-        ${task.hasChart ? `<div style="border:1px solid var(--border);border-radius:10px;padding:10px;margin-bottom:12px;">${WRITING_TASK1_DIAGRAM_SVG}</div>`:''}
+        ${task.hasChart ? renderTask1Diagram() : ''}
       </div>
       <div class="panel-right">
         <h4>${task.title} — Answer</h4>
@@ -2133,13 +2205,23 @@ function renderAdmin(){
     </div>
     ${state.testSets.length>0 ? `
     <div style="margin-top:14px;">
-      ${state.testSets.map(ts=>`
+      ${state.testSets.map(ts=>{
+        const isActive = ts.id===state.activeSetId;
+        const isDone = ts.status==='done';
+        const statusHtml = isDone
+          ? `<span class="pill" style="background:#eee;color:#666;">Session Done</span> <button class="btn-outline btn-sm" onclick="adminReopenTestSet('${ts.id}')">Reopen</button>`
+          : isActive
+            ? `<span class="pill pill-submitted">✓ Active</span> <button class="btn-outline btn-sm" onclick="adminMarkSetDone('${ts.id}')">Mark Session Done</button>`
+            : `<button class="btn-outline btn-sm" onclick="adminSetActiveSet('${ts.id}','${esc(ts.title)}','${esc(ts.date||'')}')">Set Active</button>`;
+        return `
         <div class="row" style="align-items:center;justify-content:space-between;border:1px solid var(--border);border-radius:9px;padding:8px 14px;margin-bottom:6px;">
           <div><strong>${esc(ts.title)}</strong>${ts.date?` <span class="muted">· ${esc(ts.date)}</span>`:''}</div>
-          ${ts.id===state.activeSetId
-            ? `<span class="pill pill-submitted">✓ Active</span>`
-            : `<button class="btn-outline btn-sm" onclick="adminSetActiveSet('${ts.id}','${esc(ts.title)}','${esc(ts.date||'')}')">Set Active</button>`}
-        </div>`).join('')}
+          <div class="row" style="align-items:center;gap:8px;">
+            ${statusHtml}
+            <button class="btn-outline btn-sm" title="Delete this test set and all its data" onclick="adminDeleteTestSet('${ts.id}','${esc(ts.title)}')">🗑️</button>
+          </div>
+        </div>`;
+      }).join('')}
     </div>` : ''}
   </div>
 
@@ -2347,6 +2429,7 @@ function renderWritingGradingBlock(student, task, locked){
   return `
   <div style="margin-bottom:24px;">
     <h4>Writing ${taskLabel} ${band!==null ? `<span class="pill pill-progress" style="margin-left:6px;">Band ${band}</span>` : ''}</h4>
+    ${task==='task1' ? renderTask1Diagram() : ''}
     ${locked ? '' : `<p class="muted no-print" style="font-size:12.5px;">Select part of the student's answer below, then click "+ Add Comment".</p>`}
     <div id="writingText-${task}" style="border:1px solid var(--border);border-radius:10px;padding:14px;font-size:14px;line-height:1.7;white-space:pre-line;margin-bottom:8px;">${buildHighlightedHTML(rawText, comments)}</div>
     ${locked ? '' : `<button class="btn-outline btn-sm no-print" onclick="addWritingComment('${task}')">+ Add Comment on Selected Text</button>`}
