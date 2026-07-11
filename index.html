@@ -1320,15 +1320,23 @@ async function adminStartTest(){
 // picks this up via the control/live listener and syncs itself, regardless
 // of whether that student had already submitted early or gotten auto-locked
 // when their own (shorter) timer ran out.
-async function adminContinueToNextSection(){
+// `force` skips the admin-buffer wait entirely — for real-world situations
+// where the admin needs to move the room on right now regardless of the
+// countdown (e.g. everyone visibly finished early, or the buffer just isn't
+// needed today). Without force, this refuses to run until the countdown
+// hits 00:00.
+async function adminContinueToNextSection(force){
   if(!state.currentGlobalSection || state.currentGlobalSection==='completed') return;
-  if(adminSectionCountdownRemaining() > 0){
-    alert(`Please wait until the ${SECTION_LABEL[state.currentGlobalSection]} timer reaches 00:00 before continuing.`);
+  if(!force && adminSectionCountdownRemaining() > 0){
+    alert(`Please wait until the ${SECTION_LABEL[state.currentGlobalSection]} timer reaches 00:00 before continuing (or use "Continue now anyway" to skip the wait).`);
     return;
   }
   const next = nextGlobalSection(state.currentGlobalSection);
   const actionLabel = next==='completed' ? 'finish the test for everyone' : `move everyone on to ${SECTION_LABEL[next]}`;
-  if(!confirm(`Continue and ${actionLabel} now?`)) return;
+  const confirmMsg = force
+    ? `Skip the remaining wait and ${actionLabel} right now? Any student still mid-answer will be locked out immediately.`
+    : `Continue and ${actionLabel} now?`;
+  if(!confirm(confirmMsg)) return;
   try{
     await db.collection('control').doc('live').set({
       currentSection: next,
@@ -1337,6 +1345,42 @@ async function adminContinueToNextSection(){
   }catch(err){
     console.error(err);
     alert('Failed to continue to the next section. Check your internet connection and try again.');
+  }
+}
+
+// Which registered students in the active set are still behind the current
+// global section? Happens when a student's own device is asleep/backgrounded
+// and never gets to process a control/live update on its own — their answers
+// are still being saved as they type, but their status can be stuck at
+// "in_progress" until that device reconnects. This finds them for
+// adminForceLockStragglers below.
+function getStragglers(){
+  if(!state.currentGlobalSection || state.currentGlobalSection==='completed') return [];
+  return Object.values(state.loggedInStudents).filter(s=>
+    s.setId===state.activeSetId && s.currentSection!==state.currentGlobalSection && s.currentSection!=='completed'
+  );
+}
+// Directly catches up any straggling students to the current section from
+// the admin side, instead of waiting for their own device to reconnect and
+// do it itself. Their answers so far are untouched — only the status of
+// whatever section they were stuck on gets locked (auto-submitted), same as
+// if their own device had done it. Safe to run any time; students already
+// caught up are simply skipped.
+async function adminForceLockStragglers(){
+  const stragglers = getStragglers();
+  if(stragglers.length===0){ alert('Everyone is already caught up to the current section.'); return; }
+  if(!confirm(`${stragglers.length} student(s) are still behind (likely their device is asleep/offline). Lock their answers so far and catch them up to ${SECTION_LABEL[state.currentGlobalSection]} right now?`)) return;
+  try{
+    const batch = db.batch();
+    stragglers.forEach(s=>{
+      syncStudentToGlobalSection(s);
+      batch.set(db.collection('sessions').doc(s.email), s);
+    });
+    await batch.commit();
+    render();
+  }catch(err){
+    console.error(err);
+    alert('Failed to catch up stragglers. Check your internet connection and try again.');
   }
 }
 
@@ -1671,6 +1715,8 @@ function patchLiveTimers(){
       cd.textContent = formatTime(Math.max(0,rem));
       const btn = document.getElementById('continueBtn');
       if(btn) btn.disabled = rem>0;
+      const forceWrap = document.getElementById('forceContinueWrap');
+      if(forceWrap) forceWrap.style.display = rem>0 ? 'block' : 'none';
     }
   }
 }
@@ -2372,9 +2418,17 @@ function renderAdmin(){
         ? `<button class="btn-primary" onclick="adminStartTest()">▶ Test Start</button>`
         : (!state.currentGlobalSection || state.currentGlobalSection==='completed')
           ? `<span class="pill pill-submitted">✓ Test Finished</span>`
-          : `<button class="btn-primary" id="continueBtn" ${adminSectionCountdownRemaining()>0?'disabled':''} onclick="adminContinueToNextSection()">${nextGlobalSection(state.currentGlobalSection)==='completed' ? '✓ Finish Test' : '▶ Continue to '+SECTION_LABEL[nextGlobalSection(state.currentGlobalSection)]}</button>`
+          : `<div style="text-align:right;">
+              <button class="btn-primary" id="continueBtn" ${adminSectionCountdownRemaining()>0?'disabled':''} onclick="adminContinueToNextSection()">${nextGlobalSection(state.currentGlobalSection)==='completed' ? '✓ Finish Test' : '▶ Continue to '+SECTION_LABEL[nextGlobalSection(state.currentGlobalSection)]}</button>
+              <div id="forceContinueWrap" style="margin-top:6px;display:${adminSectionCountdownRemaining()>0?'block':'none'};"><button class="btn-outline btn-sm" onclick="adminContinueToNextSection(true)">Continue now anyway (skip wait)</button></div>
+            </div>`
       }
     </div>
+    ${(()=>{ const n = getStragglers().length; return (state.testStarted && state.currentGlobalSection && state.currentGlobalSection!=='completed' && n>0) ? `
+    <div class="donts" style="margin-top:12px;">
+      ⚠️ ${n} student(s) haven't caught up to ${SECTION_LABEL[state.currentGlobalSection]} yet — probably their device is asleep or offline. Their answers so far are safe.
+      <button class="btn-outline btn-sm" style="margin-left:8px;" onclick="adminForceLockStragglers()">Catch them up now</button>
+    </div>` : ''; })()}
   </div>
 
   <div class="card">
