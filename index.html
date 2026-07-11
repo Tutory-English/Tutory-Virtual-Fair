@@ -2323,9 +2323,18 @@ function ensureGrading(student){
       notes:'',
       reportSent:false,
       reportSentAt:null,
-      locked:false
+      locked:false,
+      listeningOverride:null,
+      readingOverride:null
     };
+    return;
   }
+  // Backfill fields added after this student's grading object was first
+  // created (e.g. from earlier today), so older/in-progress sessions don't
+  // silently miss newer functionality like manual band overrides.
+  if(!('listeningOverride' in student.grading)) student.grading.listeningOverride = null;
+  if(!('readingOverride' in student.grading)) student.grading.readingOverride = null;
+  if(!('locked' in student.grading)) student.grading.locked = false;
 }
 function openGrading(email){
   const student = getStudent(email);
@@ -2573,6 +2582,32 @@ function setSpeakingCriteria(key, value){
   saveState();
   render();
 }
+// Manual band overrides for Listening/Reading — for cases where the
+// recorded answers are known to be incomplete or missing (e.g. a technical
+// issue during the test) and the auto-computed score from those answers
+// wouldn't be a fair reflection of the student's actual performance. Leave
+// as "Auto" to keep using the normal answer-key-based score.
+function setListeningOverride(value){
+  const student = getStudent(state.adminReviewingEmail);
+  if(!student) return;
+  student.grading.listeningOverride = value===''? null : Number(value);
+  saveState();
+  render();
+}
+function setReadingOverride(value){
+  const student = getStudent(state.adminReviewingEmail);
+  if(!student) return;
+  student.grading.readingOverride = value===''? null : Number(value);
+  saveState();
+  render();
+}
+function bandOverrideOptionsHTML(value){
+  let opts = `<option value="" ${value==null?'selected':''}>Auto (from answers)</option>`;
+  for(let b=9;b>=1;b-=0.5){
+    opts += `<option value="${b}" ${value===b?'selected':''}>Band ${b}</option>`;
+  }
+  return opts;
+}
 function setGradingNotes(value){
   const student = getStudent(state.adminReviewingEmail);
   if(!student) return;
@@ -2661,9 +2696,15 @@ function renderGradingPage(student){
   const lBand = rawScoreToBand(lGrade.correct);
   const rBand = rawScoreToBand(rGrade.correct);
   const g = student.grading;
+  // Manual override wins over the auto-computed band whenever it's set —
+  // see setListeningOverride/setReadingOverride above.
+  const lOverridden = g.listeningOverride!=null;
+  const rOverridden = g.readingOverride!=null;
+  const effLBand = lOverridden ? g.listeningOverride : lBand;
+  const effRBand = rOverridden ? g.readingOverride : rBand;
   const wOverall = computeOverallWritingBand(g.writing.criteria.task1, g.writing.criteria.task2);
   const sBand = computeSpeakingBand(g.speaking.criteria);
-  const overallScore = computeOverallScore(lBand, rBand, wOverall, sBand);
+  const overallScore = computeOverallScore(effLBand, effRBand, wOverall, sBand);
   const lWrong = listeningWrongDetails(student.sections.listening);
   const rWrong = readingWrongDetails(student.sections.reading);
   const dateSource = student.sections.listening.startTime || student.loginTime;
@@ -2699,23 +2740,31 @@ function renderGradingPage(student){
     <hr>
     <h3>Result</h3>
     <div class="score-grid">
-      <div class="score-box"><div class="band">${lBand}</div><span class="cefr">${cefrFromBand(lBand)}</span><div class="lbl2">Listening</div></div>
-      <div class="score-box"><div class="band">${rBand}</div><span class="cefr">${cefrFromBand(rBand)}</span><div class="lbl2">Reading</div></div>
+      <div class="score-box">
+        <div class="band">${effLBand}${lOverridden?' <span title="Manually adjusted by the teacher">†</span>':''}</div>
+        <span class="cefr">${cefrFromBand(effLBand)}</span><div class="lbl2">Listening</div>
+        ${locked ? '' : `<select class="no-print" style="margin-top:6px;font-size:11px;width:100%;" onchange="setListeningOverride(this.value)">${bandOverrideOptionsHTML(g.listeningOverride)}</select>`}
+      </div>
+      <div class="score-box">
+        <div class="band">${effRBand}${rOverridden?' <span title="Manually adjusted by the teacher">†</span>':''}</div>
+        <span class="cefr">${cefrFromBand(effRBand)}</span><div class="lbl2">Reading</div>
+        ${locked ? '' : `<select class="no-print" style="margin-top:6px;font-size:11px;width:100%;" onchange="setReadingOverride(this.value)">${bandOverrideOptionsHTML(g.readingOverride)}</select>`}
+      </div>
       <div class="score-box"><div class="band">${wOverall!==null?wOverall:'—'}</div><span class="cefr">${cefrFromBand(wOverall)}</span><div class="lbl2">Writing</div></div>
       <div class="score-box"><div class="band">${sBand!==null?sBand:'—'}</div><span class="cefr">${cefrFromBand(sBand)}</span><div class="lbl2">Speaking</div></div>
       <div class="score-box score-box-overall"><div class="band">${overallScore!==null?overallScore:'—'}</div><span class="cefr">${cefrFromBand(overallScore)}</span><div class="lbl2">Overall Band Score</div></div>
     </div>
     ${overallScore===null ? `<p class="muted no-print" style="font-size:12px;margin-top:8px;">Overall Band Score will appear once all Writing &amp; Speaking criteria are scored.</p>` : ''}
-    <p class="muted" style="font-size:11.5px;margin-top:8px;">*Band scores are indicative, converted from the raw-score table / teacher rubric — they may differ from an official IELTS band score.</p>
+    <p class="muted" style="font-size:11.5px;margin-top:8px;">*Band scores are indicative, converted from the raw-score table / teacher rubric — they may differ from an official IELTS band score.${(lOverridden||rOverridden) ? ' †Manually adjusted by the teacher — not calculated from the recorded answers below (e.g. due to a technical issue during the test).' : ''}</p>
 
     <hr>
     <h3>Listening — Detailed Feedback</h3>
-    <p class="muted">${lGrade.correct} out of 40 correct (${40-lGrade.correct} incorrect).</p>
+    <p class="muted">${lGrade.correct} out of 40 correct (${40-lGrade.correct} incorrect).${lOverridden?' <strong>Band shown above was manually adjusted by the teacher.</strong>':''}</p>
     ${renderWrongTable(lWrong)}
 
     <hr>
     <h3>Reading — Detailed Feedback</h3>
-    <p class="muted">${rGrade.correct} out of 40 correct (${40-rGrade.correct} incorrect).</p>
+    <p class="muted">${rGrade.correct} out of 40 correct (${40-rGrade.correct} incorrect).${rOverridden?' <strong>Band shown above was manually adjusted by the teacher.</strong>':''}</p>
     ${renderWrongTable(rWrong)}
 
     <hr>
