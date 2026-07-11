@@ -3,6 +3,13 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!-- GitHub Pages doesn't let us set real HTTP cache headers, so these meta
+     tags are the standard workaround: they tell browsers not to keep an old
+     cached copy of this file, so a normal refresh reliably picks up the
+     latest deploy instead of silently reusing yesterday's version. -->
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
 <title>Tutory 2026 Virtual Fair — Online Test Platform</title>
 <style>
   :root{
@@ -2498,7 +2505,10 @@ function renderAdmin(){
               const timer = sec.status==='in_progress' ? `<div class="muted" id="rem-${key}-${s.email}">${formatTime(Math.max(0,sectionRemaining(s,key)))}</div>` : '';
               return `<td>${statusBadge(sec.status)}${timer}</td>`;
             }).join('')}
-            <td>${allSectionsDone(s) ? `<button class="btn-secondary btn-sm" onclick="openGrading('${s.email}')">📝 Review${s.grading.reportSent?' ✓':''}</button>` : `<span class="muted" style="font-size:12px;">not yet complete</span>`}</td>
+            <td>
+              <button class="btn-secondary btn-sm" onclick="openGrading('${s.email}')">📝 Review${s.grading.reportSent?' ✓':''}</button>
+              ${allSectionsDone(s) ? '' : `<div class="muted" style="font-size:11px;margin-top:3px;">⚠️ not all sections locked yet</div>`}
+            </td>
             <td><button class="btn-outline btn-sm" title="Delete this student's session/answers" onclick="adminDeleteSession('${s.email}','${esc(s.name)}')">🗑️</button></td>
           </tr>`).join('')}
       </tbody>
