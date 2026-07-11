@@ -1355,9 +1355,14 @@ async function adminContinueToNextSection(force){
 // "in_progress" until that device reconnects. This finds them for
 // adminForceLockStragglers below.
 function getStragglers(){
-  if(!state.currentGlobalSection || state.currentGlobalSection==='completed') return [];
+  // Also applies once the exam is fully finished (currentGlobalSection ===
+  // 'completed') — students whose own device never got a chance to process
+  // that final transition (e.g. it was asleep) need to be caught up here
+  // too, otherwise "Completed test" stays stuck at 0 even though the test
+  // is genuinely over.
+  if(!state.currentGlobalSection) return [];
   return Object.values(state.loggedInStudents).filter(s=>
-    s.setId===state.activeSetId && s.currentSection!==state.currentGlobalSection && s.currentSection!=='completed'
+    s.setId===state.activeSetId && s.currentSection!==state.currentGlobalSection
   );
 }
 // Directly catches up any straggling students to the current section from
@@ -1369,7 +1374,8 @@ function getStragglers(){
 async function adminForceLockStragglers(){
   const stragglers = getStragglers();
   if(stragglers.length===0){ alert('Everyone is already caught up to the current section.'); return; }
-  if(!confirm(`${stragglers.length} student(s) are still behind (likely their device is asleep/offline). Lock their answers so far and catch them up to ${SECTION_LABEL[state.currentGlobalSection]} right now?`)) return;
+  const label = state.currentGlobalSection==='completed' ? 'finished' : SECTION_LABEL[state.currentGlobalSection];
+  if(!confirm(`${stragglers.length} student(s) are still behind (likely their device is asleep/offline). Lock their answers so far and mark them as ${label} right now?`)) return;
   try{
     const batch = db.batch();
     stragglers.forEach(s=>{
@@ -2424,11 +2430,13 @@ function renderAdmin(){
             </div>`
       }
     </div>
-    ${(()=>{ const n = getStragglers().length; return (state.testStarted && state.currentGlobalSection && state.currentGlobalSection!=='completed' && n>0) ? `
+    ${(()=>{ const n = getStragglers().length; if(!state.testStarted || !state.currentGlobalSection || n===0) return '';
+      const label = state.currentGlobalSection==='completed' ? 'finished the test' : SECTION_LABEL[state.currentGlobalSection];
+      return `
     <div class="donts" style="margin-top:12px;">
-      ⚠️ ${n} student(s) haven't caught up to ${SECTION_LABEL[state.currentGlobalSection]} yet — probably their device is asleep or offline. Their answers so far are safe.
+      ⚠️ ${n} student(s) haven't caught up to "${label}" yet — probably their device is asleep or offline. Their answers so far are safe.
       <button class="btn-outline btn-sm" style="margin-left:8px;" onclick="adminForceLockStragglers()">Catch them up now</button>
-    </div>` : ''; })()}
+    </div>`; })()}
   </div>
 
   <div class="card">
