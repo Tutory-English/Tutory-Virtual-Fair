@@ -215,10 +215,15 @@ const ADMIN_EMAIL = 'admin@tutoryvirtualfair2026.app';
 /* =========================================================
    CONFIG / MOCK CONTENT
    ========================================================= */
-const LISTENING_DURATION = 35*60; // seconds
-const READING_DURATION   = 60*60; // seconds (assumption — not yet specified by user)
-const WRITING_DURATION   = 60*60; // seconds (assumption — 20min Task1 + 40min Task2)
-const GRACE_PERIOD       = 5*60;  // seconds after time's up
+const LISTENING_DURATION = 35*60; // seconds — student-facing AND admin-facing (audio is played live, room is already synced)
+const READING_DURATION   = 60*60; // seconds — student-facing: answers lock automatically once this runs out
+const WRITING_DURATION   = 60*60; // seconds — student-facing (20min Task1 + 40min Task2)
+const ADMIN_SECTION_BUFFER = 5*60; // extra minutes the admin gets on top of the student duration before "Continue to Next Skill" unlocks (covers stragglers/late joiners) — not extra time for students to keep typing
+const ADMIN_SECTION_DURATION = {
+  listening: LISTENING_DURATION,
+  reading:   READING_DURATION + ADMIN_SECTION_BUFFER,
+  writing:   WRITING_DURATION + ADMIN_SECTION_BUFFER
+};
 
 /* Real Tutory logo — actual brand asset supplied by Sheren, embedded as base64 PNG */
 const TUTORY_LOGO_DATAURL = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAASwAAADnCAYAAACkJWu2AABG3klEQVR42u29eZic1XXn/z3n3vet6kUrSEasscPaILWEWB0zJeIltoPjbUoOYBCSsOLE9mQmtieJJ55S23Hy88QzTsaJE2OQBAhMVBMbbJzYzoLKG6uQWkKNWcxqELTQ3l1d9b73nvP7462SWkKAllav9/s8rUeI7qrq973v555z7lkIQRNISoUCTKUCD5A2/7WjqLGd1Hcmk53lJX0zITrFRPnjCI5FMIWIa2RQ84lLRH0vgKesdy8Ytk8/tKr1+Ve9RwlmZg+0vAYC2vc+QUFHKwqXYAKopFzsAZXL5Jv3/bwrd5/Fba0XkcjboX4uEZ8IpimAjYgJBGAvaTRbKUSACqDqAUgVIttE8bTh6Kdi5Oeo9222j0x9Yd06Sge/fbGoBgDKHVB0kYQbEhSAFfSGoJp/dd+sJGc+yIg+QCQXk40mExoQ8glEnUJViUh1H60IRJpBS0EgqIJAxMwx2BiAG68haa+q/gIiD8HYnzqXPrR51d0vAgv9IAuMi0VQGQA6oOiCDrb2goICsCas60cOADqvrZ9Llq9X6EeMjWYpAElrUPUe1OQQNWyoQ34PhUKVoBnBQGDLbHJgA4gTeF/fxcY+rKrr1Lt7vXD35ltafnngKxUKamfODC5kUADWhLSqmm7X/GXVU703nyHwNRTZqT5NoN5lkAL48AB1SAxTJQgUSlBDbIlsbq8rCXFbvU+e5Cj+sSTJg/D88LTn8883wbrPh1RT6F1LlbULfABYUADWeNUaNVhIHlCeuzT9JJj/mI05UZI6RJwjkMksqWGz9FRVFSABgZgjQxyBDKAeUHXbIdgskj5kc9FPPNz67m987/n9XMimWxtcyKAArHGkohqUyc9dXOsgY/+GjHmHpEkGKoIZcmvqqAAG3etCNi0w9RBx2xm0SUTuFci9FvXu9SumP3swdze4kAFYQWNSSiiB0EUy59rqtRzH/4fZHOeSfk8gHl6L6ggAhsyFBMBMhhHlwASIAED6Mnl9VJkf8JL8jJJk08bVf/0s0LXfSWOxqKa3dy1VFqwVdHWFU8gArKBRqZIylkNBpHOXpl8kNn+mkkJ86onYjEH4ZhYYkZCCYSJmE2WrVACRdBsRNkH8A0T2fgyk69and/8K5UEupCoVF4KBZhpFcCEDsIJGB6y6SAqFe+zOM9729yay17tavyclAhGPD+OxGcRXEBGIrCEbgxhQLxCX7iCyjwD+XoW719rWTetuoF8e8BpUWBBcyACsoBGH1WmLns5PN6f+A8W8yNX6HRHZ8X1LB7uQYphjIhNnaRReIOq3qpfH2ZgHvEsqrEn31Gc2/KpSudwd6EICQABYAFbQMMHqrN/ZOqllxrTbOTJXuFr/GHUBh8iFBAmgTI08MGokskLdVgEeFXEPWooerCe77+15y9/8av84lxKKmQsZTiEDsIKGUMWimnKZ/Pzi9iluUvu3TBy9J7Os2IarM8gCQ5aRD7KGTdxIo1CIq/WTje9Xp/cp+/tUdPOmlS1PHfAaWdLtTCjKkACvAKygIzGsSspdXSSnX62TJ+X9HWTNe1w9wOoNDTBqupBqmCMi04iBiYf49BUI/YLZ/MQrfp7W000zX7j/hdd0ITuWaziFDMAKekPTao1BeaGf97v9J2pb7p/Ymktcvc8TGRMuzpG7kGxiJo72plEo3Evi3eMA30+kP5e6f2jTbd/fckAtZHAhA7CCXhtWWUJo57WvnETR1DvZmAtcEiyrIeMXXiOR1QvEux1kab136cOk5l7Y3PqNN9LTB75MoaC2MhOKEMQPwAqwIt957XMnIT7xO8aYC4MbOBwupIIAJtNwIZttdXz6iqg8ZqLoJ1KrPeCQbuwY+NEz5cF5YINdyBADC8CaaLA695rd50Rx/ttsorNd2u8IAVYj5kJyzGSivaeQKm6bqn8UXh+wufxP0urO7mnPT92/mLtRCwmERNYArHEOq/MW7T7bRK3fZTZn+OAGjiKAQbNuPMawbZYSCdS77Upms0j9p1Bzfw65hx9aRc8f8BIhkTUAazxaVrVzbM58l8me7tMAq1ELMGQuJKDMFBFs1g9MvULF90JkMyw/IGn1Z0q6edPKqU8d+CqFglpgLUI7nQCssaWCWlTIzVncfzFRXGbmU7yrhtPAsWaBZakUjUz8CGA0aiHdViLdTKL3CfMD6a4963p6u1/E4DSKUAsZgDUmWFVSW+kiN29J9VKY+DtQflMGKw6wGgcWGBGDyBg2cdZS2vvsFJLNJojc61XvzZFueug1Eln3uZDARAZYANZoUEktush1Lq3+BnP0HVXMEFcLltW4diFBzBFTMxNfBOrSbQAeJTb3e/UV1PWRjfXvPYcDTiEnckvpAKyRtqwKaisVcrMXD7yDTXwHqxznfV2IDA+aWxM0nl3IvbWQEXMjEx8CiLpeqDzmVR5g5gcE7uebdrVuwb7pR4AqYSG4OEFcyACsEdT8ZRqtu4HS2Uv6f8ea3G0q2q6uLmDmcHUmMsCyU0gia/aWEnmF+PoestE68nof4O/1iW7auLrl6Ve5kCWYSs/4TGQNwBopNVsaX1d7v1r7LVLXIuI8IcSsgg50IbOW+MSWqNGNQhq1kKT8KBn7Y5X0XviBzWfe/K/Pl/EaiazjAGABWCPoBnYu7v8gmdxqqGsV74QoWFZBh+pCgqnRkZUJEA8o3BYV9ziUH2Tin/RFybontn//pf1jYErF4tg9hQzAGm41Auyzr+u73tj836s4C/EybrqEBg2zAZb9cWAtJLzCa7KDmB8W79cB9AB5Xdd9c8szr3IhCzCVBci6UIxygAVgDacX2OhnNXupu94ybhCXZOstwCpoqAywg9RCNrtRiE+2E/RR4ujH3tUe4rrbtOFbk588EFCjuRYyAGt4VlIWCO0i17mo/jHO2b+XtM6qAiIO9yBoGFzIRjudZi2kB1TcK+LdY0S4n0z+x1KrbXT1X77QUz4v2ecRlLjYs3xQLSSNaD+w8LAMA6yaY7jmLq39KXHuL8RVs64mAVZBwwywrKVOoxYSxnDUnMytUHHbQPyoJPWfi8W9xK0PbbqRfnVASIMLa8EjlcgaHphjDKtiEVwuk597vfscs/mST6seqhxgFTQqLLBmIquC2FiGadRCOoFI+gqIN7IxD/iBgZ95co9uvmXqLw98lULpHjuzZ8GwJLKGh2YYLKvOJbU/Y5v7oqQDDVhRuO5Bo9eFJBJSNWT21UKSB0RcryoeBcu9YL0/Hdj2cE/P3Vuw7vfSQS9xTGshw4NzrGCVXV7tXDzwVybOf8bV+4Uoi4WG6xM0pgA2OJHVZg0NxXuouO0gs0lV7mfWnwtyGzfeSM9gvxKNoa2FDA/P0N9jwnIQukjnXlf7Gudzn3D1AUdQAwTLKmicuJAAsYmYOKuFFO8h4raxUo8y368u+bEm6eZNZ0x55sBA/d5ayCM4hQwP0FBq8Oj4JfW/5Tj+hKsNOILawKqgcWmAYe8ppCGOiG3WjQIeUHUvQ/wTBL1fie/3tOfeTU9semm/djqNoR77aiFf/xQyPEVDaVkR6emf0lx7Nf06R9ESV+93BAqWVdDEciEJSgqiwd0onEIk2U3GPqw+XedVfhYRPbx+ReuzB7wCLVjQSGQ9SPwrPEhDZVl1QS8pPp8faJ+x2sb5D6X1qiOCDZc4KLiQCoIycXzAXEi3FUqPkrU/FpfeT6KPdN+cf3Y/SDVqbgOwhkqNC3raoqfzU+1Jq20UfTgN05iDgl7bAgMJNWshOTuFVAFU3Rbx/jFi8xAD/77nhafvefIHZ9YHQysA66gtq2wac1suucXY+P0+qaYgisLFCQo6VIBBCZTVQu5tpwMoufskdcs3rmr5YfNZC8A6UlY1Rsd3LtoxlaKp/48t3u6CZRUUdHT82lcLSRS1MVTUu2TZplUtN6KoJgDrSLzAZhHzVTrNtPpvszELwoDToKCh5pd4IkMcxeoHBj6w8db2uwOwDptWawzKC/2cj+pMyskaY7kQYBUUdIygBfXG5I3CPxrVBy4L3S0PQ4WC2mf/+Tzfee0rJ3E+fzczX+qTfh9gFRR0bEQgFnWeTTTTkTwZgHXItFL7bIXcOUuqp0Vx23eJzPkNWIVrGBR0bH1DkMkRK+qhcdyheIFFNaiQm33VzrfkTPxdwMz1SdUFWAUFDYeVBYJ4CNEZIYZ1CJYVKuTmLKmfZyz/E9Se6dNgWQUFDaeJRRyRiDwbLKzXUymD1TnX7JjHbL4PNWf6NFhWQUHDyysoyIDYvBCCxa9nWXWRm/vRvk6N83cCdKpPqyHAHhQ03LwiKDODnOsOFtbBWNVwA+curhbQkv9nIjpV3EBwA4OCRsK+AkPFJar+HwOwDgKrSoXcudf2vQscf49UTwywCgoaIVqJuCifN/C+/P5TW34Sgu6DNH/+Q9G6dRekc6/b806yrf+okGniE5+1iAkKChpWWKn3Jm436t0G11979yN3tPcGYDW1Rg0Wku9cUvsAkb0ZkMniU08UYBUUNPywEmdybVadX5/65P2bV7U+j5KG/uKZH5jFrGZfV73K2txKlTQWCaPjg4JGClY212bF+3XUt+N31t8x48Vmi5kJ/0A2A+znXbvnozaKVqpPIw2wCgoaIVips7k2651/kGR/WAHAxHZ3SsrP3ky+c+nAYmPiFRAXiXoNsBrWJZr9oc2/v8bXXl8gtJsev0vBe5trs977f61ve+mDj3xrVi9Kyvj6vj7vE/TBVCpkeVYyZ6n7L8zRCpWUVSRYVkMNo2xOgSjUa9bZ26uIqIhkIGIQLIEjgs0TbO6Ar+zfCJYIWTskVa8qIpr9pfG66qFZ38pw3cemG2hy7Uac/1G6a9uHfnHnydtKjaZ9g7+PJiKssAaMheQ7Fyf/lSP7VUkHwuj4oaETmh0kQQApE5iZOQYZylabNpHiIc5DxKXEph9EKRPtaU6uG7RCVQEDkUkKGKifbKKYQNyAXbaKVQB4D9GkQTRt/DgRKOsHF27R6IWVzbVZcf5HfbWdxSdvO353s0Hmgd9LEw5WjWnMcxYnnzY2+oq4qmQTbwKsjiTg0OgQqQTsnRRMDEAA8Q4AdkD1RRHZoiTPWbVPq9GXiLnXqe6A6+83SPcQu4T35Hce7G0GwMa0YyoSiii2U9nGk4zINCc0U+FPI9U3k+EToGaWEmYR2Va2DTiKQn0CFe+VoFAwEQUrehT5gSZuNd6729Ndj/1eT/m8PhzEspqAwFIqlGAqXeQ6l9W/YCj+vK9XpbEJB1gderzJq0IJ+0aZEwHqPFT1JYF/gqNoA5x/NK31PxoJv+BJX9l0+9Qdx/SjlZTPe+zlGbal9TivOMPa/NkCnKvi5xuyJ5KxU0GAiEB9AngvSlACOGxWI7OWmgF2cfXbpjx573WVyuXu9WA1gYC1z7Kae33652zt/3C1amN0fIDVoawshSoRMdkWYkMQJxBxW9iYh1BP7gVzt4rv7r6l7YXXAkphbRYznTkzI1+5oznSfDmwfLm+7mosLSdg+d7/LPZk393bCwLWolL5TbffhPSG5i97KPJ03hk+oU6GXspsLhL1c4zNtQCA9ylUUp/1EScOm9cwmeaAj3Kt1ifp6im//NniytoFvjExfYIPUlUlJYBA2rm0/iVj4s+5tOoICANOX/e6iSrIE2A5agUx4J1zBPeIiP6UKPqBJrUHN66e1Hvg5lAsZmAqA0AHtDEQc6+Jdsw2JQWwHIQe0GtOEj79n3NzL3vbrwvyBYK+g5guIhOdDALUpRBJPEAI1Q3HFFZi41YjTv5uw03mvwCqTYPijX56fD+wJeXmDt75wuf+1pj4911S9QRwgNVrmlOeVIlMjtlaiHdexT0CE9/pff2HsqdlU0+Z+vZztQswM2dCy2XIgZN6R8s6KKxdyzNnLtDyoKGcADD76ldORkv7JSz8QUDewTY3EwAkHYCquIbVFWJeQ2hZ2Vyr1ST53+tX5D5TKil3ATgUWI1vYDWmMQMLuXPpbTeYKFria/0eRCaMYzzIQlIVApjjNiIA4pLnwbgLJHdNOTG/ttJFrvndhYLaysyyolwcnYA6hPBAsQdUBjB4qvA5S7aflqPJ7yTgP4ukbzdx3opLID71mZEeUl6OilUEMblWI17+asM3zX8vlZS7lkNBh76GaPzCimT+/G9EvnPxNziOFrt61RHC6PhXgwqemK2J8hDnAOJ/h0++lfRt/U5P+dTte2NGRTXZA44xCKnXWyslLvYsPxBeNG9JMl9BV4HpQ2zMaeoV3g14QCnk6h0JrFhMlDfiki9tWJH7M5SUcZiwGp/AasDqtMLT+alnnHSTMdFVLun3hNAeZn9OwTOz5TgP79xuUr1LBDdsXHnnvcBCvz+k9nejxvF1ocICmEplnzU573f7T3StUZGBxWyjTijg06oQQRHiXIdwTUVB7E3UYr2r/0n3ivyXs7meR7bxjS9gNWDVUXy53U457o7Imt9OwzTmV7t+bIyJ8/Au3QPR1aTpNzasbO9uukzFIrg83iypI1hLBYCbrvCsZS+0znDTPswUfQxsLiMQfNrvAaKQ1/V6sAJM1EY+GfiT7lWtX87meh55KIHG0wJDF8lZv7N1Um7mtDusNe8No+MHo0qEiJjjVqhzu1TkNvjk6923TNqc+XyaWQsTxZo6DKuruBC8N1hfXGPmTn7/h6D8GYrsReoFWYNHCgc5r7aswCaCev/ZDSvz/xslteiCP5qNcHxc4EY1d0fxuem5KSeuJmPe4+pVR0QBVqqiqrC5NlZJEyhur6X6lUdvye0D1cGO/4MOvJBUXAMuL8zANX/ZC61ejr8SSp9lG50laR0iPqy5zI4XJgY4gmj6sY0rWlZkbiAJjjK1ZewDqwGrCxf1nZDa3J1s7cW+3u8w4S2rLKDOJmfJGkDlRz6tf3HjytafAo34VADVkS257OHzANBRfG563D7zkzDmD8na6b7WL1l94wQNzKsImJkoEhV3fffKlpXN5phD8fJjG1h7LauXT4inHHcnG3Oxqwc3MEtRUDL5NhLvnhbv/nzjivxKgDRYVENncaEIbrrQ5y3afbax+f/JbK+EAt5VJ946VBHiiMmYxElt2aab2m9uNsccqrcYu8BqwGr21f0nm5b4/xHbi30SYKUq3ti8UYKH6D9IvfaFjasn9b4qFhN0TMDVeX3tg4zoz8lwh6tXFdAJ0V9NVYRNxIDt97529aZVbXcNtkQnNrCasFqy6yxGy91so9MnPKyyXlAwuTYW8Zsl1U9vXBX9EAAKJbWDEz+DjoFKyugpE8oL/dnX7DoujlqXM+GTBIL3A57IjN8UCPFCNscg3gPnfnfDqvw/D+4SOrGB1Rwdf82uMznX/l0iPsunfeN7QRyCVcUmZ9hYiOJrtdrurl/cOmVbcP9GYC8dZFXMXZq+l4j+mow5I8sFHH8niQr1zLEB025Jah/ZeHP7D5qj8o7F+42ti1fKpjF3XrvnXMT57zDZM3w6sS0rVfEmbjPq3Uvw6ac3rGq9Hdg3XzEgZGTcxCyXjfycj26ZaVpnfpmIr/NJDQoZN2PjFOLZ5A0IL5JPrly/ovXHx8qyGnPAaj6Acxb3X2xM7p8AOslP5AGnKqpEYnOtRp2/B7W+ZetXT33yaLKIg45N6AIA5l5X+0PY6EsEavOuOubXrap4ti2GGL8iqX3g4Rvb1g11gH3MAqsZg5m9qP8SG+W/A9AJ4qoeExdWAjZsbB7i3dde2f3gH/+q/NaBY727BR2RV8DoAaFMft61u/8TotYbGy7imPUMVMVz1Gogfot3yfs23dy2brgs+tEPrNI9Fl2Xu85F1d/gKPdthcwUV5+wlpWqeGNyRolqgP/khhtzN0GVsLDMKC8MsBrlm+78q3tn+dbpK5nNb7l6I641hpoGNkMQgDwu9YGPdN/cvqEZqhmO9x/VF6pJ7c4lA+8ijm+DyvHi6xN2so2q9yZqN6puC7y7dsPKln/b10YnuIBjxUUsLHo6v8ue+FUy8cclGRBAxsRMAVV1Jmq1INks9eSK7ptbnhnuE+hRe5HmL9No3Q2Uzllcu8LY6Fsqvl1cXYjNBIWVeJNrM+pkk/fVqzetmrQppCuMURexscF0Lk3+O7H5S3UJQ0VGc6PAvaPjvX/U+/SKTStbnjoWeVZjEliFwj22UrnczbkufR8bukPhWlW8n6hta/eeBGq61lR3XrXutplbULjHonJ5gNXYvKFULGd1iZ3Xu+sIuAGSRiJ+dHoPKo7jNqsi6zXd/aHum6c9M5xu4OgG1nyNsI7SzsX1hWTtTfCuXSSdwG6gpjbfGolPf2h2Pv+RdeVf3zUSO1vQMbG2LLrIzVnU/2GOcjdDfZu6RDCKvIi9lpXz90p94AMbV0/qHcn1R6PyBl43sISj6JvqU4Z4wcSFlTO5Vqvef3tAdlz32IoZe8JJ4PjS/PkarVtH6Zzr+t9nbO52iG/3o2SDbm6W3rl7vdY++MhNk14e6fU3akBQLKpBF7k5S+pLOIpvUJdCRSYwrHzWrN/58hm7zMLHVszYg5JygNX40rp1lKJwj924qu173tWvUuIBNpZVVUZ2/YmzcWvknVTIb33/IzdNerk4CjbLUWBhKaEAgwq5OUuSj7MxX1OXGKifsKPjswGTrVZ9+i/1XTsW9pRn9h/qGKSgsanmAcq5i/uuiE3+dhXXruJ0JDZsVU1trjVySe37u7a/9NFn73rzzjcacDpBgLWv0n3u0tqfks39hU+qQhN4dLyq9ybXbuDSf6tu3fWhx77bsKwCrCaMezj7utr7bWTXiE8iiAzrxq0q2TTmNP2eJNGVG1dT/2gKQ4ygu9WYxlwmP/u62ufY5P7CJzU3cWFFgIo3Ubsh8ev6q7UrH/tuI2YVYDVh3MNCQe2mVfm7RPxSMi0KsB7T+bP7w8pHuTbrU39Xfs9LHxltsBpBYO0bHT9nae3zNpf7UmZZeTNRLSuoE7YtRsQ9VxvY9ruPf2vyK8XimhBgn2CqVMgVSmq7b8qtFlf/7xy3sALHPH1AIc7m2oyk6U229+Wr7iufOjAaY6YjAAclRWN0/HW1/2tyuU/5pOoxkacxqwqMBbHtSwd2vmfz6uN+HlIXJrKUCiWYShe5zsW1/2vi3KeOZSddVXW2pdVKkn5zw03x7wFQQBkYfZY9D/ODSaUSiEA6Z3H170wu9ymXVB0m+Oh4JVLimCStLwuwCgJIK13wxaKaqafm/sjXa/9ic21W1fshfh6hKt7mW61L0xs23BQvQ0kJpdEJq+G1sPYFjqlzce1vbZz7A1fv95jo45EauVaS1pdvWJHvCuU2QfuFTkA6d/HuGWpaKgQ+R9zAEOVoqSogNm414uTLG07mz6ELCgUOdxrz+LOwmtOYFz2d71xSW23i3B+4etVNdFipiudcqxXnv7NhRf4LxaKaSheCZRW019IqFtVsWDl5q68n1wLaRxxlM/+OFlaqanKtxqfuCxtuMn+y7y1HdxH9sQdWSRldLB1FjafZk2+2ce4ql/R5EOzEtqxE2OYMfPpErVb7BKAod4SuC0H7q1wmXyyqeeTWtockrX+WbcxKfOSbmqpCoTbXxpIkX+heEZVQUDtWOn4cW2A1LKvTP/VYLp4st5rILkxr/Y5gzHgaOn1EwQMyCkUq4n/vF7e1b0ERIdcq6DWhVSio3Xhz2z+opCtt3HJk8SxVAQEUtbBz6Z92r8iVUFJG5eimMY8PYDVg1fn+HVPbq7/2/9jywjTMDGxucmJyeSPiv9i9ouWeQkFtSF8Iej1VFkCgSlF94LOSJr8wUd6oyqFvcCoKIjI2D3j3iY03xf9fY3T8mLLqjwmwGnWB0lHUdsycvIaj6IpsakiAlaqIjdqMT+o/2fjUvX9ZLKqpVELcKugN1EWCheAHb52yDeo/LgpHZDJr/Y3XnIKsss1BfPLJDSvirxcyWPmxFoIYemA1juTnF7dPyU2R7xjD73S1akpgM+EXnaoSGSj8Tqb0k6hc7kLcKujQfcMsnrVhZWuFvPuqyeXfsEhaVYTIEBmrIsnvb1jR8nUU1WQn0WNv3Q0psJrV3LOvf+VkN3nSXTD8DlerOiKKwmoDFComzrOI+8v1N03aGMpugg6bWWsgKKoxfQNfkrT2yOu6hirCHDPbeADOX9l9U8s35i/TCGWM2TU3ZMAqFNSWy+Q7r33lJMtT72JrC75edURkwzIDAPUmajU+Te7f6bb831JoFRN0JGqkHawrT98l3n9GFZ4O8hiriiebYzDvEZ9etWFVrlwoqV13A6Vj2aIfGmAV1VQq5DquqZ7KuSl3Q835vt4fYDVo+WQrTWpW/WeevfnNta5wUYKOwjVEUc3GVe0/FHG3mFwLK8QPijw4E7UZAC+rpr/TvSJ/J8ZJQvJRA6vpBs65ZteZcT6+C2Tn+rTfh9PAwbhSsXELwyU3r1vZ+tNicAWDjlKlDihUyaXV5ZKmLzNHnE3XFWfiVqsqT0q97z3dN7WszfKsxkf1xFEBq+kGnnftnjkct/2AyMz1Sf/EncZ88DiCkrHsXPqSN/rnUKUs0B4UdOTq6iIpLgT33Dr9OVH8FdmYVMTbXJtV7x7yfs9vbbx12nqsUYPK+Cn1OmJgNWcGnnPNjnk2armbmN7ss2m2AVb7W1dqbI4g7qubbmz7VXFhSBANGiLPsAxBSbmddt0gaboxbm+PVOQ7tW0vv3vTyqlPFUr3WCwcX3HSI0s3L6hFhdzsq3vP55bjvs1Ep3lX9SF14VW0ErIxq8ij1vZfum7W3+zB8uU62uu1gsaOmvM7O6/d81HO598++bGffqxSudyN12Elh29hlTJYzbluz2+a3PQfsiLA6rV4BSgbC6j89bobpu8q9iynAKugIVNRzbobKJ2/bPsUbsl92CfpDyqVyx2WaTReT6APz8IqNGE18Jts4m8T+SnepZ6IAqwOZl1FORKfPopk50UbV58wkDEsACvo6NVsQzR/Ue1sx3Rr1Bpf4AbqG+J6X+GB1cftyZ7s8bfWDt3CarqBi/e8g6OoDMgU7+oSYPVa1pUqsSFW/j8bV8/qLxZBAVZBQ7CyqJmpPnvJwNt9ZH/IUXxB0tefUJSbm+SnXgEiLRYxLsfjHZqF1fCH516f/mdAV0HRJpIEN/B1rCuOcqTiNpvd1bet65i2Z6wVmQaNRhdwjUF5oQeAeUuTTyrx/1aVWCXxpCCOWsi7dF21Pfe2J7+GZEJaWM1OAnOuq36EQKsh2iY+kQCr19sDVZkNQfw315Wn7yr2BOsq6GhhpQblhf70dz+em3e9/zrZ6Gvqk1ibzyIx+6SmxkbzW/fUfxsgLRR03OVC8hu5gZUKubnXVq9kG98s3uV0lIzRHr2uoChxbLyrP1+N/O0AUF4T0hiCjsIFLGVGw3mLdp/dftJp/0aGf98l/R4qut+zSFCAiQ0tA4AFCzDu1h2/LtEr5OYurV+v1q5WSXKqfsKOjj8ML9sbGwFCtz9+w+RXikU12UIKCjpMlTR71rrIzVuavs/Y1nvIxG9z9X7XsKr2C+kQkZF0QFXxm3OWJRd3dZGguGZceUJ8MKIXGkTvvD75BBl7A1SgIkpEAVavvxsqwxhx6R5AbwEI5XBRgo5EWTmNAMtp3vX+CyD6NkFPeKOyN4WIieKIU1kKAEUUx5c58CrzszE6vnNp8kky9muaDmhWu8sUVtEb8Uo8x21GXO2u7hUtHyiVlLtCVnvQ4bqAjWdwzjW7zqRc/m+Nid/p69VsAvQbP4cCMgyiLUh3X9h9y/EvNKfvjDMLa9/o+LlL3aeZ7dc0rUmA1eHiXwHW2wGlnh6E6xZ06CqqAUhRJt95bXUh59r/gzl+ZzZhCof6HLJK6o2JZnFu6hUAMJ5SHGgQrAy6yM1dWv8i2/jPfDLgocogCg/doXmDwiZmVXkGe7ZdtKF84tbxtLMFHWOrag0YC8mf9TuPTmqdeeYXAf1DVYX45LDbNCnUm6jFSJr8pPvU3AIsx7gpB2Mgm8aMLnKdSwe+xDb+M5dUPSABVoe35ISsBVS/t6F84tbsSDnAKugNlE1ZViwkP3tRcknLjDPWkuU/FF8X9YkcSU85ArGkNQXjgvOfqc7LEkl1XATfbbEI7uoiP3dx/Yts48+5+oAjggGCG3hYi0TViEuEjd4JAJWZ5QCroNfXGjVYSP70d2uufVb9j8H4H8Qcu1qjRRMdzXJUZ6Nci6D+LgDrenvXjovnmQBgztL6R6yN73DJgCOomdADTo/IG1Rhm2NV39P78isXbrn7pGq4KkGvqaKarK86aee1Oy9C3P6/jDEFn9Sg6ocmz1FVOGphFX/fGbu/87ZyeaEfDyEK7li6czopLVfn0fiFAqwOH/vCxkBVfrjl7pOq48X8Dhr6wEEzZej0dz8Rz11S+xxFbf/BbAou6XfAAYmgR7UmicXVoZpe+Mspvz13sIEypoFl0vi3iPlM72tCCIXMR2Z/E6t4EfH/Fq5G0EGNqsYJYKWLXOfS5KJJJ7/lhxzlvqSStvm9MzuH1lhQ9Z6jFuO9eXv2GcY+sCxH5lJiw0AY5nmkpjeZHKv3z+RieQBodIIMCgKAknKxB1Qukz9riU5qtfJZVflvINPu6v2eiPiYdeklAArAcAEofaVcXj7m46pMZE5rzI4NruCR8AqqZA1A+sC6Gya/Umqe+gQF96+RrV4uk+9ckv52q5UfE/Hn4dJ2n/RLBqpjF4IhEItLQELzO4ufmgV0yd5yn7EKLBBcWFxHFSsAFBD4nwFASBYNKq5puH8VcudeO/DrncvSVWTobgjmunrVKVSHp4EAEcQJGfsmamu/AAAwxtenFfVPWjbQ0Lr3iPxBUmLvUue1XgGAMBFnIpNKDTqg5YXk57xzSxudNuMPCPoZJjvTJ/0qgA73+DuFKhggYy4HcFcRGNP1rZbS9Mfe0qdVweF88LB5pWTzDPFP2O27ngWArFFf0IRSSbkAcHNQ6dzra+8H2c+zMfMlrcMldU/ETBj+EhlqNJ0R8eejqGasx1c5rfZXIH69ifKkqiHwflhRChI2DCL/SPddb965txYsaMKsgGacqtJFbt6S5IJ5H3PfJjJ3Eni+q/V79V4bzS5HxhwgInEJyPDp8/MDJ2XrU8esacI95Tf1qeLPAGq0xQzQOiyPEICIPgwAhd4Qv5oooNqbplAhN3vxzrd0Xl//ujJViMwHfZqIpNUsqD7i5W0ESKoAzUysPxMY28XQjJLyxlUtP/Rp8lkTtzJzzqiKU6iHajief4Prpy4Fc7QRAGbODO7gRAFVuUx+7qd2z+i8Pv0Cc+v9xsS/rz5tdUnVExGPokaXpCBvrDVE0RwA6B3DGyuji6RYVLNxVf4riRv4KAyetLk2a22rIRuzqkJVfANg4YEcZF4xRyTi9xjjHgNCwH3cu34NUHUUd07vvD75rFbzDxljP08qx7t6vwdUR+UUKVJSBZjNuQBQGcOtk/eRtqSMLpK5i3fPUM5/BIr3qvrz2JhZbCMLAcQ7qCSqqgIiJQVjonYhVRW2LaziH032PDa3p3xeEh7s8efyFxbAVCpZMH1+Uaf49voiEH+Co+hMcQ7ia57Ao7uzSaOuUMQ/eOZue2l5DA9Z3e8iF4tqBv8ycz66Zyby9jx4ushae6F4f7ECJ5kohgJQ56CSikIVqiAQNW7cuI/lKNTbqNWIS7+zYUX84UYwMzzk40GDstMB4C3Ltk+ZlLRfwzF/nGDOVRF4V8saBYyF5paqSiYmFXlR0+3zNq6e1TtWC6H3ywkpl8lDlYoLweUO6MYu6gXwH40vzL7q2WkUz5wnrn6RF32rsfYcovh0Yw1UABUP8XUAcACIVHncditVKBHAbJ4AoCiKGa/jwScSqNADQhf5MoD5V+usNJ8W2fMfmJw5y3sP7/o9gSjrUzVGljYBkBQEOp7j404F0IsSaCym4Lw6iY1Iy3vrCpWKRXBvB6iyHH4T0Y7BAJu7ePcMFXumKF+mypdA/Ty20QnMUawKqE+hPlEFBESgzAgbFy5k5hEDKsnTAFDoWEuV8MiPyfhUsZht0Gj03+9ctOPXyLZc48gvtSY6TZxHWm+CaizO4yQSFTFRS6wqJwF4qNgDGosJpG+QdUtaLjfg1ZXdXJRAxUZ6f3klbQWwFcDPAGD+st3H+zQ916m7kE3uMoVeQCY60USxgQLiHNQnmQsJgDLrayy6kKogEu8V4p8DgJk9C4I/OBZBVYY0Xb+5i+udIno9RbbIxrxJnEM2UusYFigPn5WlYIY6fwowdk8KD7NMgBRd0L1kLpW42LM8g1cHdF0XvQKg0vj6yls+umXm5Jbj50itfpES/QYxn0cmd6qxBpkF5qG+DgUcaCy5kAooMSBVgLaGh38Mun1l8uUyfKFwj911+sDlgPmYqlxhW3ItkiRwrta0qMbH9GRtRFm9njKWf42juxldXVLOTK/9dq3eXlClAv/UauoF8G+NL8xb0n+iuOQsobZLVdwlhGgucXSSiSOrAqh3UJ9ASX12Fjt6TyE5OxjqqxvekQF7ebCwRq89nMVly5Cm23fe7770Jts25UM7YT9KzG9lYng3AFevOgLMmLeoDhbDIABMJwJABWvHqKF4jM1ulECFteDKzLKivHC/oPTZn9DjoqQ2j5xewCa+VCGdpDiNbQSg6ULWVaEC4mYMbORdSFUhm2NxyTNMLRdtWElhQs4odPlQBBd6Qc20BACYvaj/EmPij4D0w2yiU1QA7/oVRJLV+o3PilqFeBu1GRX5l/U3mvfuK88ZW2t2eG9OqcToWU7FhguJA4aMzr/yheNl0owO5+Rt7OVSiqLzoPJrbOMMYF6gvgbVpguJkcl/URG2bezdQHf0yo63rrv7pGoA1uhx+QYXIgNA57X9J6nhd5M1HyHFZWyivKYpvCS+sf8xxnkqjkK9sa1Gvb+v78WnFjz5gzPrY3HNjvBNGuRCroU/cHba/GV9s1zdnGXi6ALv/GVQOR/GnGhsxPtOIVM06x8beWA8HDff2lYjLlm7YWX8m9DM5A60GDlIDc6bAoCO4svtJj/5ErZ6JbF9J9voFFVAkgEodOzkUA2hV8C2hVVlk9m9+7J15em7xiKwRjigOOgUkg5wIRdA1nXRFgBbAKwF8JVLlu6c3q+5eRhILqBcy8WqcimZ+ARjrYEC3qeApKKqOiiNYuhdSFUoAZoF3bW4UE05tJgeXnevcVpdXgMBkTQOguj865OLIXqFEP82wHPZMsQ5+KTfq4KyNi9jKIdqKB828QDRlP7YtQLYNRZzsexou6boglYAQWVfHKLpQt7XRdsB/HvjC2dfs+u41lxrp3P1t5HoxWTtOYTcm7lxCineQ3xNARp6F5IAsAnjvIY7JtUBqnSR23taTaDzF/XPV2PeobDvc+IvMnEckROIr4mrq2aWN5vQ700BaBy1tI3ZA4VRfmRLijJ8+cBF27uWKpUF/he30jYMSmTtWNR3QszxWeJxiYgUADmPbXzwWshGO52jcSEp9ME/5lZUYS14wQJIVxcJyvAVAHM+uqWNcsedyyTvEsF7lE0nWdsGD5BL4GtVR8hOmMPw8kEbrApA3CZJmgvAGkaAVV57Ub8E4CVkeWBf7ljUd0IEc453chGpvVhELiEys2ycyxJZfaMWUkUHxcAOyYUkBUS1NzwJQ+/mAY0ysYa1XakAnYt2TIWJfkPFvJ2j6DKIn8cmZ0CAuAGoSxygnDGKbLieB7OvBAC1quEArJF2ISsVAKqEhftcyJ59ALsHADrfv2OqTM9fQPWBC0H2EljuIMqfbgxliazSyAM71FpIQujQMASA6m2mHgxOSobynGv6O8F0sYniy8T7/0RsTraRhXiBeKepTxunfOAxVds3stRScmO3Sn987UTZSd1+LuTgWshuop0YlMg6d/HuGeLcWYjbL1PVSwnaSSaaZW0UiTQy8SWBigiYpPEOg11IDk/AIapxktfbu5YqCxZkCZyDAPXud2vuhVm7TrJRfq56WqB+4G1k4jPYRu1ZljZBXR2pSxxBGVnwPAz+nWAa56bzwWshB7mQzVrInwJZOx2Nzdl+QC62kX0rVDqJ6CSTb4sBcJaNn2ZxMMCTwheLap6aBoaqZBv8RE9vyK4xekB7J7Q0Msz3biQV4ORLft4y49zzf01UzlePC7eY+oUGrWcroulsATWAuBp8kjpVJQIxiIiAYElNYE3sOz8okbWjA9p1QCLrW4rbp0yb3H6WMJ/nfHKx4dzZUD1Dxc2K2nNIqvU1G2/Kf2TwzxTXqOn9O9DMmdByBxTLoeMTZPvA1OxlX1mwr/TlQOtq3vMDpzilMxgym0w8j0RnC8nZzLk8mSweLK4OFe8BbZyF6LjNPB8JXzDrlmy8S+tzNt86+dFm084ArDH8EA6uhXwVZAr32I5TO0+M2J6CKL6QvHR4Nj/zlHZHSW2r3fxM77p1F6SHErMBsh7wWcZ/M6ZAzZU1siACgNJyApaj+Xn3/6yvDd/ZV+2cJhbTDdkzTJw/R1Q7VKSTiU8m0CxqpJxABOITqDoFsW+MoxrdnTvH9NJWJbakxFsT3XPhoyumPxuANU7dm2IPqLdjLVW6Lt9vSvb5y9wyjs030v6kTkzbAXpCxD8P4DHD9DgLvZDAv9jWt3XLfeWb6kCXHOr7Hez/7te/6HD6xx/k9YoHe+0sCfMNX7dQuMfuOOXs6WqnnxzHPMs7d5qonsscnwrSX4fiFIDayTZCTPu50uQb645ognSnHT3AigiEl9K+PRdt/sfjng/AmiAA6+iBPRfwT072/xmRuc0P9INNbMhEWRhYAVWB+tSrl93g6CUQtkL1aVL/vBBeEMhLEaKXHWR7bN3uPtfWd8IpawcOhOJw6+SitrTn0ZpjTFLTP03EHM+ks0TlpIiik9XQKQBOVi8zAMxgyzEo2msXqZPsoEJlX98zgLJyPQRAjdjSFSWTJ1V9WpPaJRtXT+pFqcTo6grAGu9q9r6fszR9nzH2uz7t96TEShAoNDvSytKriS3AFsSMwfaEekDV1UHaR6CqODegim1E/AqR7gJTvypvA7Sq6rcRvFeRbUw8AABeqFdVUpXXd6GIVQ1hugq1s7UeTDPVpbGaeAoztxF0mkInq+gkgU4nkePZ2EnE1CKq7aTcztY0Eg+RpX9kZQRQSZHlsJEA0EY1ATVycsPaGl0WlrBtYahsiGo7Cw/cdvzuUEs4QdR0zTRNd4kKSPeeYJlGgH0fmMQpxKlAs6QIzYLwjTKhHIhzCj6OTZw1DeADdhEFFNHevzcWH4w5nI2RwU1+EEAm3vcejfdTBViy/1b1yGLfAtVUnahAKQMxKIuJQxsHd0wATNgCR71vkN01YPcDv9o0ZkvK7Li6JSVQYe1axoIF2T+tzf6ozNyqKBdlyHaTRvyIrN9OsH3K1J6ZHQexKhpxGgLt/0BTgzzqAYiKS7NFhVcP39kXhyZAhfZC8fBCGPtegxq+mr7qjUDagFLzAxOBQGa/96RApjH4fICy5bMTlcvdWIxfjQNgKRUKMHtb0+xXOH3w72/28R4KeFXr9Z3tLfndENMOdUfwDA8i0V6kvUGF4pGWPh7AUjrIv+G1/i1oPOznCgJE69uyzXwtAwjAGjZrqghGmXylAgcCzlv60ptIpsxm4CwoTSOiyYD2efW7rIkfgyYb16+gF5uJpFkc6gjB1UhDaNHj+ollB0AnqjgNZkfQqBVpIxuQngOAAhZgLE55GnvAapqyZfiOorabtv4P2yj/fu/T/8RkjqMoAjVCic2QojoHUdo172PuZ96n32NN/6kx8QdHYxpPPwN7dj6XbmObg9DenrNBQaPRI8xSR8HPj+VfY2zVwhXVoItk/vyHos4l9Y9Fk9P7ba5tFch8kGGOU03hk6p3tapL61XnalXn61WvkoDZTgHMe22U/3vl3INzF7tPn1z8eQu6SIpFPcyaNFIU1WRteP2zDS8tdBwNGtXPuvoUsPwiAFRmlsfkeh07wCqqQZn87Kt3nSXz5nzfRPENTLbDJ/3eJ1WvmmoWKSZDRHbQlwEIKql6V/Uu6fdE5jSOzVeOn3Lhj2ZfveP8cpk8DhNahY5myMk+Mxry04OCXse8UmZL4lxVBmqZhdWxOQDrWMOqc2nyG7al7V+Jo3e6er8TVxUCmwaU3sAjIyKQIbBRVxdX73fE9m22bdIP5l5bew/K5FHSQ3aRZ/Y0TgrJ/1JFQdDQuSFotPIKxBZszEv13b96FgDQtTwA69jAak1mWV1fvYzZ3A3gFJf0O6JGNuaRiIiJ2Pqk6tTLDETmn+ZeV3svuig77j0ElZulMdzSIy6VI/4sQUHHmleAZiUY9Oxj3z2nr1FwEIA15Copo7zQz1u683RWe4eqTPW+7odqGi8RWXGJANoCG90+++q+89FFckjuYeOk0PS9+LSqbCWOgEbn0qCg0SWSrPmFdgPQUknG7OY6ij+4EnpAp7/78Zxoy9+ziU4UV3dD3bSNmFl83RPzFJOPvvHWJVsn7X3/1/9JBZTWfeukbRyZjWAL1RDJChqNvGqmKacbAWDtWgRgDbkn2Mizajv5lEUmit/h06obKsvq1ZaWMT7pdxzFF1R10n9FmXyp9MY5VcUisn3L02Oc5bNLeDqCRtnGrwAZ8b4Kps3A2D0hHL3AUqVyGTJ38e4ZEP4T9Q4HtCY+BtCCkSRRYXxq9vX9J3d1kUAPLbVKNH1QB+1kQUGj51mCMsdQ8S+2IH0SALIytQCsobOuFoIBUhX+bWPjN3uf+GM/0ZlJJBVrczPY0yIAKCzH67qfe/tTOdmkPu0nYvPqAr2goBHllZIxgGLzfTdN3Z4dKlGwsIZSWckMQFH+QzqcGU5EUIGCoitOW/R0vtIF/7qxrMbndLW2zer902xyQIhjBY0mEWWVH0QPAMBrNYcMwDoKdxAg7VjUd4L45DJ1KdEwfU4CjLgaAJk3VSf/OkCK141lkRaLanrKlJAx94IJGiysoFFkXxHA4hIVTf8dGJSOE4A1RFqeAcJae6HhaGojg32YdgUCIMImzqlpmQ/goO2FD7o0SCsIWQ1Bo4tXQiZPIH581/bksfHwK406YBWythdgxVsossjGyg+ngZfl2BljTgde3fv8VV5hY8fSWvXn6t0O4sgMaj4VFDSCvFJlZqj6nz1717SdxUYtbgDWkGpB0zOcpg23a/i9UkC9zjikb+4iQUl52q9PfV7VPWxsBCWE9Iag0SBSFZBIBQB6e9eO+VPs0ZtARiP72ZTQeshWIcCVLnJK+AG40fw8KGhk7Stlk2Pv6jv7ffXfAaCyYMGY30hHL7B0BK2U7FTlkPteVxqdGw2ZH/l6fYBgwgj1oJF2B4WtBRv7H0/ccvwLwNhsiTzqgTVzZmaeMNG2RnSIRuBugwy2HvL3d5EASutvumsz2D5IUQ6qEtzCoJEHl/d3A0ChgHFRnD/qfomORhBbIE+pc3sH2g2bcUUECOBrtScP6wcLMMBCL+q+zdyYYxwUNCISZc4Zl9ZfgpcfZe7g8nGxgY46YHU1uiBokj6oku4gE9HwZY8roMzqkzqEHwYOI29lQeYW5rT2PZ+k25mikPUeNDJWlULYWijwo+5b2l7ITge7ArCOkY2jUKWNqyf1kol/QhypDlM8SwHPUQw1vL76ypYnANrbRuZQ3MJSSfmhlVOfgvp7KIp1uFMygoKAbASTeqfGmFsBoLyviCwA61iosCCr4RNXu4toGEuKVUHMBO/vfPIHZ9aLa8QcTlpFz94kU7oNImEse9BI2Feeohwp3MOv7NzyM4USygvHzcY5KoFVqWQ1fDnv7/Ku/iSbmHHMrRVV5oh9mrziJHc7AJSLh2fZZTWQSv1J37+r+EeMzTOQjRULChoWXIkQsyGIueNX5VMHFjZaIAVgHWu3sAh+8NYp2wTuf7GxpDi2wFJVb6KYIP5vNq+i50slZdDhJq2SFovgJ287freq3EJsELzCoOGjlSqbmCWtv2zq0W37NtHxo9F71LkGUiop7/7l1lu9T//VxG1WVdyxuc/iTdRmvXcP1PjZvymVlLuWH9mu1AzSp7b6jy6tv8Im4hB8DxoWXgGe4xgAldfdRlvGeiuZsQUsIu3CcjxbeXPNJdXfF5dsYZu3quqG9iaLZxMZFbdLUf+9x1acs6er8f5H9IKNUp2eG6Y/x0S3chSTanALg469eUXMRpKkP036bxyvv+XoTibr6hKUlDffMvWX4t2HoNpropYhs7RUxRHHBsQ18ck13Te2b8BQFIj2lAlQIqp/U1y6g9hyKIgOOsbeoJgoTyruu5tXT+8ulcZHZvvYAlbTYimq2XRz232pT66AyjMm13APjzRApCqq4kzcZpm513v/oY2r2r6HglqU6eitofJCXyyC1980+VERd6eJYz7WMbigie0MEjGJ9wMU4asjUh0SgDUYANlk5s2r2h501b63q0+/b3JtlmyeFeIV4t/YglFVqFcVTybHNoPeT3Sg9q5NK/P/gqIaVGjI3M1GLItU/FclTfqJLIVYVtAxsq68iVtYfXrXhm+2PVgslrmra3wORBk79UVl8sWimk23T31qw6473+/rtaWq/hcmajMmbjMwlqCiquIP/IKqEFmyUauxcZsh4AmX1v7Ljsefe9eG1e3dhaGyrA6wDItF5U2rJm0CeJWJcxxiWUHHAldEzOJc1Sr/FYBxlCb6ao0907GknGWfk84v/nKKmzTrCuLch6DyVqiewFk/qv1+QXEpAPSCzIMiybfdnvqdPeWp2/e93jHajRqfde51u09Xzj1IwGRVj+HroBo0/p1B8TbXZiSp37BhRf73isU1plxeOG43Rhqzn7uoPNgqOvvq3llRblKHNfnTxKczmBuJ64a3e5c+U6v2PfLYHTNebH5/sagmy1E5xse+RTUok+9cMvAFE+U/7+r9PpuuExR01BIiAxBtT+rVS3tunfJLLAeha/zOxxzjO71SsQgud0AP7SYpFQowWSb9cOWnKAPQjqW7plnNr2Myp6lP9NiPLQsa/85gZl35+sDnu1e1/nm2CdO4DjvQOLp7hOWgg40xKqMMrCnKEedWHa2R1VhInUurHzWcv9Wl1WBlBR3lclcxNscq8ou4Hl38wOnoa4ZKArCCjtoSLJVAXT2gOZOSfzFR/E4fXMOgo1lRgDc2x+LTD3WvyN85EawrAAhuyfDsC9oFAGXy4pLPqEv7iE1Icwg6QuvKexu3GPHpHd0r8ndigsAqAGs4laU5mEdumbRRVb5sojyHfllBR+IKEscsPn0pTat/AiihY+J0tw0u4Qi4hmufQbyTa/ewzV/i06onouAaBh2iKyjeRm1G0mTRhpW5W4oTyLoKFtYIuYaVm6km6j+hmvZRln8RXMOgQ7CuxNu4zYhP79iwMncL9qbmTBwFYI2Qa7hpVfvD3qf/00R5o9CQAR/0RrBSY/PGu+TZWi35I0AJa4YhjzAAK6jcLDNa2fZVn6T/1CjmDtAKek1cERlRmFRd+vFf3Na+BUXwSKXpBGBNSGhBASU/sP0T4twTxrYYhFmGQQfFlXob5424gS9tvLn9B8VG9cREvBYBWCMmklIJ9MgdJ7wsml4PRh/YACohnhU02BX0JtdmvU/vjOKWvygW1ZTXYMJubOGUcIRVKNxjK5XL3ZxFA0tNLn+jT6ueABNuTVDWurvFiPePktYKG1ZO2Qr8Twa6ArCCRk7No+k5S+r/x8bxf3O1qiMiG67MxKYVjCHiaDvVau9ef2vbQ5jArmAA1uhanFRcCH5qGti79B85jj7oav2OiAO0JuZ6UBAr2chB3cINN+bvKhTUVoawwWQAVtDRrlIGoJ2Ldk4hO+m7ZM1lvh4srQm4DqAgb6MW45Pqp7pXtf1toaS20hVgBYSg+2jaOwRFcPfN03aS1n9XvXvExK0h3WGCwQoKZ+IW49Okq3tV298WCgFWAVijVWXypZLy+hVtL6aJ+4Cqf9ZErSZAa8J4gs60tFpNa3/dvTK3HEVt9G4LCi7haFazS+mivrls898D42Sf1kJMazy7gare5tuMT+o3dq/If2xwK/BwfQKwRr2a6Q7zrt0zR+OW7xHxqT7t90QmFEqPN7tKydl8SyRp/ZsbTs59HAACrAKwxiC0spOh2Vdtn21ap9xJzG/xSQjEjy9Ywdt8q5Vk4IYNp3z599G1vAGpAKsArDHsHp535e6zbVvLGjJ2tq+HlIexzypRJVIbt7Kkyf/asCL3x9kA1OU0kRND30gh6D7aVSZfKKh95FuTfxGl9XdBfcXmG5OvETbhsWlXiYAZxrayS9I/3bAi98coKWe3M8AqWFjjyNLqXLRjKplJK0xkPujq/R4AgzjcxzEDK+/ZtBgiqqrqH2y4yd48bCPnArCCRgJagFLnkuSv2MaflrQGQDwQupaOAcvK2bjNiviX4NJrN6xq+df5yzRadwNcgFVwCcele4hSiQGge0XuM+LTj5MxNTZ5oyIhuXDUkkpUId7m26yo3Ou4evmGVS3/iqKadTdQGmAVLKzx/gQQimBksw5/w3DuBjB3uHq/I5ABUbivo8eqEmLDHOUB727ctWvPZ54qT98VCpmDhTWR9hlFmTyKarpvav1ZtTrwDoj7xyjXZokNqYaWy6PFBTRRG7ONd4pLP7X+xuhjT5Wn7yqVlAOsgoU1ITV4asq8JbU/EjJfZLatWZIpMRCsrREglQdAJt/K3qXruI6Pr781fihkrwdgBTVdxBIIXSSzr++fb5D7a2PN21x9AKoaxogNI6lU1RvbZlVTKPxX9piBP3/qhum7UFCL0B4mACtokLW1Rk15IfnT3/14bvLJv/ZpIf5jJjPZpf2eNKQ/HGP3zzMZY+I8nKt3i7g/3bSy/V8OtIKDArCC9qPWvmDunCX1eWzMXxKZ31JxEJc4IpjgJg4hqKAeqmRybaze9Sn4qzXZ/lePrZixJ7sXIb8qACvoDV3EQgmm2Ufp/CV6nXD6ebLRWzSpQcSH+NYQmFQKVRO1GQAQ8Xep+q6NK3LrASCLV1HIWg/ACjoMH9HomqIQkc5d/OIMNcf9EZFZZthMd8kAVMUTcYhvHRaoRBUQNnlD1kCd26BCf9m90q7Z5/4FqyoAK+jIuTUohjJ7iZ7FnH6GgKuYo1afNsEVLK5DsqgaoPLePwnIX9dk1y2PrZixJ0voXY5gVQVgBR0DN7Fzaf9FRPGnILKQozj2aR0qzhOIQBTy85qYggoAsG0xzATv3ZMq/u9Zk1s3rJy89cANISgAK2goVVJGDwh7c7f6L1DKLyX4j8BG09R5iNQ9VImIJya4VFUBTwTLUWv2b+K7lWRlrda7+he3nrwtuH8BWEHDDS5grwsz97pdZ5BtvUZUrzYmeosCkKa7OCGsLs2sKQWxiZltBO+SlBQ/AeGmvtqeu5+87fjdAVQBWEGjyOK6ZOnO6f0+fp+J4itVXMHYXF48IH5AoKIZvEDjIt6lqkoQKEBsjLE5KAB16a+U6LviB+7YtGryT5rfnnWAhQ+gCsAKGgXgKvaABsViaM6S+lyI+zDb3Huhfh7bGJrBC6rqQKAsIXXMwEtVVUGqpCAyMZONQAqIc9tV5aek+Ha1Xv/+49+a/Mr+1yVYVAFYQaPxmaZCAWawJdHxBy+3m2rLPGtb3ivi38vEZ5GJclBAJIH6FAp4EEA6iiywvRaUKgEMMswmBhkGBFB1L6nIQ7DmLqr2rV2/euqTzR8tFtUAQAimB2AFjSGrq7B2LVcql++tgTv93Y/nciecPD8ivpRtVPA+vZjZzGRjoQDEuwbAxEObK4xAiibIhnjdqWathVWVSKHaXNgMjohNDGIAAnhXrxNzj4reT+r/w8S4f90Nrc+92soM1lQAVtCYtrpQBBcPYnGct3TPm2LKz/UueStA53MUn6nen8JR3AJC1nZeARGBStpoZAChJmm0wTDVJtqy92u+836N60mb5NMGAAlExBbEEfYeCxAgqQdYX4LIs+LdRmJ+EMw/7//Vs08++YMz66+CVAc05FAFYAWNS3iVuYgiDmaJzL9y9/ES0Yka58+E6jkifjZApwD+BOZoChG1KpAj2P26sanu+wup7F2e2sysaHCNGt+rqgC8B3RARfdA/DYifhFEj3MUb6zXak+gpr+cJC2v3FemgcGfsVhU09u7liprF3hQsKQCsIImnPVV6ABVAHktK6VjUd8JQHSCMXIciTseMKcAfoaJW9tVZTKUppHCCXQaQduhoiBSkHkZIIF6x9Zs9c4NqE93MPCCePuSiXgbO98bDeRfPBBMTRUKamfOhGZWVOhHNZb1/wOn8RZhoGremAAAAABJRU5ErkJggg==";
@@ -818,6 +823,12 @@ const DONTS = [
 const SECTION_LABEL = {listening:'Listening', reading:'Reading', writing:'Writing'};
 const SECTION_ORDER = ['listening','reading','writing'];
 const SECTION_DURATION = {listening:LISTENING_DURATION, reading:READING_DURATION, writing:WRITING_DURATION};
+// What section comes after `key`? Falls through to 'completed' after Writing.
+function nextGlobalSection(key){
+  const idx = SECTION_ORDER.indexOf(key);
+  if(idx===-1) return 'completed';
+  return SECTION_ORDER[idx+1] || 'completed';
+}
 
 /* =========================================================
    STATE
@@ -835,6 +846,8 @@ function defaultState(){
     loginChecking:false,
     testStarted:false,
     testStartTime:null,
+    currentGlobalSection:null,  // 'listening'|'reading'|'writing'|'completed'|null — which section the whole room is on right now
+    sectionStartTime:null,      // when currentGlobalSection began, synced from control/live for everyone
     currentAudioLabel:'',
     testSets: [],             // populated live from Firestore "testSets" once admin signs in
     activeSetId: null,
@@ -1051,18 +1064,20 @@ function detachAdminListeners(){
    student or admin, from the moment the page loads ---- */
 db.collection('control').doc('live').onSnapshot(snap=>{
   const data = snap.data() || {};
-  const wasStarted = state.testStarted;
   state.testStarted = !!data.testStarted;
   state.testStartTime = data.testStartTime || null;
+  // Back-compat: a test set that was started before this per-section-sync
+  // feature existed will only have testStarted/testStartTime saved. Treat
+  // that shape as "currently in Listening, started at testStartTime" so
+  // nothing breaks — it heals itself the first time admin clicks Continue.
+  state.currentGlobalSection = data.currentSection || (state.testStarted ? 'listening' : null);
+  state.sectionStartTime = data.sectionStartTime || state.testStartTime;
   state.activeSetId = data.activeSetId || null;
   state.activeSetTitle = data.activeSetTitle || '';
   state.activeSetDate = data.activeSetDate || '';
-  if(!wasStarted && state.testStarted){
-    const st = currentStudent();
-    if(st && st.currentSection==='waiting'){
-      beginSection(st,'listening', state.testStartTime);
-      syncStudentNow(st.email);
-    }
+  const st = currentStudent();
+  if(st && syncStudentToGlobalSection(st)){
+    syncStudentNow(st.email);
   }
   render();
 }, err=>console.error('Control listener error:', err));
@@ -1110,9 +1125,16 @@ function sectionRemaining(student, key){
   const elapsed = (Date.now()-sec.startTime)/1000;
   return SECTION_DURATION[key]-elapsed;
 }
-function sectionGraceRemaining(student,key){
-  const remaining = sectionRemaining(student,key);
-  return GRACE_PERIOD + remaining; // remaining negative once time's up
+// Seconds left until the admin's "Continue to Next Skill" unlocks for the
+// currently active global section (only meaningful for the admin dashboard —
+// this is a separate, longer clock than what students see for their own
+// section, see ADMIN_SECTION_DURATION).
+function adminSectionCountdownRemaining(){
+  if(!state.currentGlobalSection || state.currentGlobalSection==='completed' || !state.sectionStartTime) return 0;
+  const dur = ADMIN_SECTION_DURATION[state.currentGlobalSection];
+  if(dur==null) return 0;
+  const elapsed = (Date.now()-state.sectionStartTime)/1000;
+  return dur - elapsed;
 }
 
 function statusBadge(status){
@@ -1175,10 +1197,10 @@ async function loginStudent(email){
     }
     state.loggedInStudents[email] = student;
     state.currentStudentEmail = email;
-    // if test already started and student just joining waiting room, drop them straight into listening
-    if(state.testStarted && student.currentSection==='waiting'){
-      beginSection(student,'listening', state.testStartTime);
-    }
+    // if the exam is already underway, drop the student straight into
+    // whichever section the room is currently on (not always Listening —
+    // could be Reading or Writing if they're joining late)
+    syncStudentToGlobalSection(student);
     state.loginChecking = false;
     saveState();
     syncStudentNow(email);
@@ -1201,40 +1223,67 @@ function logoutStudent(){
 function beginSection(student, key, startTime){
   student.currentSection = key;
   student.sections[key].status = 'in_progress';
-  // For Listening specifically, late joiners are synced to when the admin
-  // pressed "Test Start" (not their own login moment) since the audio is
-  // played live for the whole room — everyone's Listening timer matches
-  // how far the room has actually gotten, not a fresh 35 minutes each.
+  // Every section is now synced to the admin's global clock (not each
+  // student's own login/arrival moment) — late joiners pick up wherever
+  // the room has actually gotten to, same as Listening always did, since
+  // the whole exam now advances section-by-section only when the admin
+  // clicks "Continue to Next Skill".
   student.sections[key].startTime = startTime || Date.now();
 }
 
+// Keeps one student's local section in lockstep with the admin's global
+// currentSection/sectionStartTime. Used on login, on every control/live
+// update, and defensively on render. Returns true if it changed anything
+// (so callers know whether to persist/sync).
+function syncStudentToGlobalSection(student){
+  if(!student || !state.currentGlobalSection) return false;
+  if(student.currentSection === state.currentGlobalSection) return false;
+  if(state.currentGlobalSection === 'completed'){
+    const cur = student.currentSection;
+    if(SECTION_ORDER.includes(cur) && student.sections[cur].status==='in_progress'){
+      student.sections[cur].status = 'auto_submitted';
+      student.sections[cur].autoSubmitted = true;
+      student.sections[cur].submittedAt = Date.now();
+    }
+    student.currentSection = 'completed';
+  }else{
+    beginSection(student, state.currentGlobalSection, state.sectionStartTime);
+  }
+  return true;
+}
+
+// Submitting early just locks that section's answers and parks the student
+// on the "waiting for the admin" screen (see isWaitingForAdmin) — moving to
+// the next section only happens once the admin clicks "Continue to Next
+// Skill" for the whole room, via syncStudentToGlobalSection above.
 function submitSection(section){
   const student = currentStudent();
   if(!student) return;
   if(!confirm(`Submit your ${SECTION_LABEL[section]} answers now? You won't be able to change your ${SECTION_LABEL[section]} answers after this.`)) return;
   student.sections[section].status = 'submitted';
   student.sections[section].submittedAt = Date.now();
-  advanceStudent(student, section);
   saveState();
   syncStudentNow(student.email);
   render();
 }
 
-function advanceStudent(student, fromSection){
-  const idx = SECTION_ORDER.indexOf(fromSection);
-  const next = SECTION_ORDER[idx+1];
-  if(next){
-    beginSection(student, next);
-  }else{
-    student.currentSection = 'completed';
-  }
-}
-
+// Time ran out for this student's current section — lock their answers
+// immediately (no extra grace window to keep typing). They stay parked on
+// the "waiting for admin" screen until the admin continues everyone on.
 function autoSubmitSection(student, key){
   student.sections[key].status = 'auto_submitted';
   student.sections[key].autoSubmitted = true;
   student.sections[key].submittedAt = Date.now();
-  advanceStudent(student, key);
+}
+
+// True while a student is done with their current section (submitted, or
+// auto-locked because time ran out) but the admin hasn't moved the room on
+// to the next section yet.
+function isWaitingForAdmin(student){
+  const key = student.currentSection;
+  if(!SECTION_ORDER.includes(key)) return false;
+  const status = student.sections[key].status;
+  return status==='submitted' || status==='auto_submitted';
 }
 
 /* ---- Admin actions ---- */
@@ -1243,15 +1292,44 @@ async function adminStartTest(){
   if(!state.activeSetId){ alert('Select (or create) an active Test Set first — see the "Test Sets" card above.'); return; }
   if(!confirm('Start the test now for all students who are logged in?')) return;
   try{
+    const now = Date.now();
     await db.collection('control').doc('live').set({
       testStarted:true,
-      testStartTime: Date.now()
+      testStartTime: now,
+      currentSection: 'listening',
+      sectionStartTime: now
     }, {merge:true});
     // no local mutation needed here — every student's own device picks this
     // up instantly via the live control listener and transitions itself.
   }catch(err){
     console.error(err);
     alert('Failed to start the test. Check your internet connection and try again.');
+  }
+}
+
+// Called from the admin dashboard once the current section's admin-facing
+// countdown (ADMIN_SECTION_DURATION) has reached zero. Moves the whole room
+// on to the next section together — every logged-in student's own device
+// picks this up via the control/live listener and syncs itself, regardless
+// of whether that student had already submitted early or gotten auto-locked
+// when their own (shorter) timer ran out.
+async function adminContinueToNextSection(){
+  if(!state.currentGlobalSection || state.currentGlobalSection==='completed') return;
+  if(adminSectionCountdownRemaining() > 0){
+    alert(`Please wait until the ${SECTION_LABEL[state.currentGlobalSection]} timer reaches 00:00 before continuing.`);
+    return;
+  }
+  const next = nextGlobalSection(state.currentGlobalSection);
+  const actionLabel = next==='completed' ? 'finish the test for everyone' : `move everyone on to ${SECTION_LABEL[next]}`;
+  if(!confirm(`Continue and ${actionLabel} now?`)) return;
+  try{
+    await db.collection('control').doc('live').set({
+      currentSection: next,
+      sectionStartTime: next==='completed' ? null : Date.now()
+    }, {merge:true});
+  }catch(err){
+    console.error(err);
+    alert('Failed to continue to the next section. Check your internet connection and try again.');
   }
 }
 
@@ -1285,13 +1363,21 @@ async function adminSetActiveSet(setId, title, date, skipConfirm){
   if(setId === state.activeSetId) return;
   if(!skipConfirm && !confirm(`Make "${title}" the active test set?\n\nStudents will only be able to log in if they were registered under this set. The test-start status resets to "not started" for the new set.`)) return;
   try{
-    await db.collection('control').doc('live').set({
-      activeSetId: setId,
-      activeSetTitle: title,
-      activeSetDate: date || '',
-      testStarted: false,
-      testStartTime: null
-    }, {merge:true});
+    await Promise.all([
+      db.collection('control').doc('live').set({
+        activeSetId: setId,
+        activeSetTitle: title,
+        activeSetDate: date || '',
+        testStarted: false,
+        testStartTime: null,
+        currentSection: null,
+        sectionStartTime: null
+      }, {merge:true}),
+      // Activating a set that was previously marked "Done" un-marks it —
+      // a set can't be both Done and Active at the same time. Safe to run
+      // even if the set was never marked done (field just doesn't exist).
+      db.collection('testSets').doc(setId).set({status: firebase.firestore.FieldValue.delete()}, {merge:true})
+    ]);
   }catch(err){
     console.error(err);
     alert('Failed to switch the active test set. Check your internet connection and try again.');
@@ -1306,21 +1392,13 @@ async function adminMarkSetDone(setId){
     if(state.activeSetId === setId){
       await db.collection('control').doc('live').set({
         activeSetId: null, activeSetTitle:'', activeSetDate:'',
-        testStarted:false, testStartTime:null
+        testStarted:false, testStartTime:null,
+        currentSection:null, sectionStartTime:null
       }, {merge:true});
     }
   }catch(err){
     console.error(err);
     alert('Failed to mark the test set as done. Check your internet connection and try again.');
-  }
-}
-// Undoes "Mark Session Done" in case it was clicked by mistake.
-async function adminReopenTestSet(setId){
-  try{
-    await db.collection('testSets').doc(setId).set({status: firebase.firestore.FieldValue.delete()}, {merge:true});
-  }catch(err){
-    console.error(err);
-    alert('Failed to reopen the test set. Check your internet connection and try again.');
   }
 }
 // Permanently deletes a test set: the set itself, every student registered
@@ -1340,7 +1418,8 @@ async function adminDeleteTestSet(setId, title){
     if(state.activeSetId === setId){
       await db.collection('control').doc('live').set({
         activeSetId: null, activeSetTitle:'', activeSetDate:'',
-        testStarted:false, testStartTime:null
+        testStarted:false, testStartTime:null,
+        currentSection:null, sectionStartTime:null
       }, {merge:true});
     }
   }catch(err){
@@ -1500,12 +1579,13 @@ function setRole(role){
 
 /* =========================================================
    TICK — runs every second, only patches live text, and
-   performs auto-submit transitions when timers cross 0 / grace.
+   auto-locks a student's answers the instant their own section
+   timer hits 0 (no extra grace window to keep typing).
    ========================================================= */
 let lastTestStartedFlag = state.testStarted;
 
 function tick(){
-  // 1) sweep the CURRENT device's own student for grace/auto-submit.
+  // 1) sweep the CURRENT device's own student for auto-lock.
   //    (Only the student's own tab does this now — not the admin dashboard —
   //    so two devices can't race to auto-submit the same student twice.)
   let needsFullRender = false;
@@ -1514,8 +1594,7 @@ function tick(){
     if(st){
       const sec = st.currentSection;
       if(SECTION_ORDER.includes(sec) && st.sections[sec].status==='in_progress'){
-        const graceRemaining = sectionGraceRemaining(st, sec);
-        if(graceRemaining <= 0){
+        if(sectionRemaining(st, sec) <= 0){
           autoSubmitSection(st, sec);
           needsFullRender = true;
           syncStudentNow(st.email);
@@ -1541,47 +1620,37 @@ function tick(){
 }
 
 function patchLiveTimers(){
-  // student-facing timer
+  // student-facing timer (only while actually working the section — once
+  // it flips to "waiting for admin" this element no longer exists, tick()
+  // will have already triggered a full render for that transition anyway)
   const student = currentStudent();
-  if(state.role==='student' && student && SECTION_ORDER.includes(student.currentSection)){
+  if(state.role==='student' && student && SECTION_ORDER.includes(student.currentSection) && !isWaitingForAdmin(student)){
     const key = student.currentSection;
     const remaining = sectionRemaining(student, key);
     const box = document.getElementById('liveTimer');
     if(box){
-      if(remaining > 0){
-        box.textContent = formatTime(remaining);
-        box.className = 'timer-box' + (remaining < 300 ? ' warn' : '');
-      }else{
-        box.textContent = 'GRACE ' + formatTime(sectionGraceRemaining(student,key));
-        box.className = 'timer-box grace';
-      }
-    }
-    const graceBanner = document.getElementById('graceBanner');
-    if(graceBanner){
-      if(remaining<=0){
-        graceBanner.style.display='block';
-        graceBanner.textContent = `⏰ Time's up for ${SECTION_LABEL[key]}! You have ${formatTime(sectionGraceRemaining(student,key))} left to click Submit before it automatically moves on to the next section.`;
-      }else{
-        graceBanner.style.display='none';
-      }
+      box.textContent = '⏱ ' + formatTime(Math.max(0,remaining));
+      box.className = 'timer-box' + (remaining<=0 ? ' grace' : (remaining < 300 ? ' warn' : ''));
     }
   }
   // waiting room dot already CSS-animated, no patch needed
 
-  // admin per-row timers
+  // admin per-row timers + the current section's countdown/Continue button
   if(state.role==='admin'){
     Object.values(state.loggedInStudents).forEach(st=>{
       SECTION_ORDER.forEach(key=>{
         const el = document.getElementById('rem-'+key+'-'+st.email);
         if(el && st.sections[key].status==='in_progress'){
-          const remaining = sectionRemaining(st,key);
-          el.textContent = remaining>0 ? formatTime(remaining) : ('grace '+formatTime(sectionGraceRemaining(st,key)));
+          el.textContent = formatTime(Math.max(0,sectionRemaining(st,key)));
         }
       });
     });
-    const g = document.getElementById('globalElapsed');
-    if(g && state.testStarted){
-      g.textContent = formatTime((Date.now()-state.testStartTime)/1000);
+    const cd = document.getElementById('adminSectionCountdown');
+    if(cd && state.testStarted && state.currentGlobalSection && state.currentGlobalSection!=='completed'){
+      const rem = adminSectionCountdownRemaining();
+      cd.textContent = formatTime(Math.max(0,rem));
+      const btn = document.getElementById('continueBtn');
+      if(btn) btn.disabled = rem>0;
     }
   }
 }
@@ -1607,15 +1676,14 @@ function renderStudentFlow(){
   if(!state.landingDismissed) return renderLanding();
   const student = currentStudent();
   if(!student) return renderLogin();
-  if(state.testStarted && student.currentSection==='waiting'){
-    beginSection(student,'listening', state.testStartTime);
+  if(syncStudentToGlobalSection(student)){
     saveState();
   }
   switch(student.currentSection){
     case 'waiting': return renderWaitingRoom(student);
-    case 'listening': return renderListening(student);
-    case 'reading': return renderReading(student);
-    case 'writing': return renderWriting(student);
+    case 'listening': return isWaitingForAdmin(student) ? renderWaitingForAdmin(student,'listening') : renderListening(student);
+    case 'reading': return isWaitingForAdmin(student) ? renderWaitingForAdmin(student,'reading') : renderReading(student);
+    case 'writing': return isWaitingForAdmin(student) ? renderWaitingForAdmin(student,'writing') : renderWriting(student);
     case 'completed': return renderCompleted(student);
     default: return renderWaitingRoom(student);
   }
@@ -1735,6 +1803,28 @@ function renderWaitingRoom(student){
       <p class="muted" style="margin-top:10px;">This page will automatically move to the Listening section as soon as the admin presses "Test Start".</p>
     </div>
     <button class="btn-outline" onclick="logoutStudent()">← Log out / switch account</button>
+  </div>`;
+}
+
+// Shown once a student is done with a section — either they submitted early,
+// or their own timer ran out and their answers were locked automatically.
+// Either way, the whole room moves to the next section together only when
+// the admin clicks "Continue to Next Skill" — this page updates on its own
+// the instant that happens, no refresh needed.
+function renderWaitingForAdmin(student, key){
+  const auto = student.sections[key].status==='auto_submitted';
+  const next = nextGlobalSection(key);
+  const nextLabel = next==='completed' ? 'your results' : next==='listening' ? 'Listening' : SECTION_LABEL[next];
+  return `
+  <div class="card card-narrow center">
+    <h2>${auto ? '⏰' : '✅'} ${SECTION_LABEL[key]} ${auto ? "time's up" : 'submitted'}</h2>
+    <p>${auto
+      ? `Time for ${SECTION_LABEL[key]} is up — your answers have been locked and saved automatically.`
+      : `Your ${SECTION_LABEL[key]} answers have been submitted and saved.`}</p>
+    <div class="center" style="padding:20px 0;">
+      <span class="pill pill-wait"><span class="dot"></span> Waiting for the admin...</span>
+      <p class="muted" style="margin-top:10px;">Everyone moves on to ${nextLabel} together, at the same time, once the admin continues. This page will update automatically — no need to refresh.</p>
+    </div>
   </div>`;
 }
 
@@ -1960,14 +2050,11 @@ function computeOverallScore(lBand, rBand, wBand, sBand){
 function renderTimerTopbar(student, key){
   const remaining = sectionRemaining(student,key);
   const cls = remaining<=0 ? 'timer-box grace' : (remaining<300 ? 'timer-box warn' : 'timer-box');
-  const timerText = remaining>0 ? formatTime(remaining) : ('GRACE '+formatTime(sectionGraceRemaining(student,key)));
+  const timerText = formatTime(Math.max(0,remaining));
   return `
   <div class="section-topbar">
     <div class="name">📝 ${SECTION_LABEL[key]} Section</div>
     <div id="liveTimer" class="${cls}">⏱ ${timerText}</div>
-  </div>
-  <div id="graceBanner" class="grace-banner" style="display:${remaining<=0?'block':'none'};margin-bottom:14px;">
-    ⏰ Time's up for ${SECTION_LABEL[key]}! You have ${formatTime(sectionGraceRemaining(student,key))} left to click Submit before it automatically moves on to the next section.
   </div>
   ${key==='listening' ? `<div class="audio-banner">🔊 ${state.currentAudioLabel ? 'Admin is currently playing: <strong>'+esc(state.currentAudioLabel)+'</strong>' : 'Waiting for the admin to play the audio...'}</div>` : ''}
   `;
@@ -2037,7 +2124,7 @@ function renderReading(student){
   return `
   ${renderTimerTopbar(student,'reading')}
   <div class="card" style="margin-top:14px;">
-    <p class="muted">Terjawab: <strong>${answered}/40</strong></p>
+    <p class="muted">Answered: <strong>${answered}/40</strong></p>
     <div class="task-tabs">
       <button class="${activePassage==='p1'?'active':''}" onclick="switchReadingPassage('p1')">Passage 1</button>
       <button class="${activePassage==='p2'?'active':''}" onclick="switchReadingPassage('p2')">Passage 2</button>
@@ -2208,8 +2295,11 @@ function renderAdmin(){
       ${state.testSets.map(ts=>{
         const isActive = ts.id===state.activeSetId;
         const isDone = ts.status==='done';
+        // "Set Active" is always clickable, even on a Done set — clicking it
+        // both un-marks Done and makes that set active in one step, so admins
+        // never get stuck needing a separate "Reopen" click first.
         const statusHtml = isDone
-          ? `<span class="pill" style="background:#eee;color:#666;">Session Done</span> <button class="btn-outline btn-sm" onclick="adminReopenTestSet('${ts.id}')">Reopen</button>`
+          ? `<span class="pill" style="background:#eee;color:#666;">Session Done</span> <button class="btn-outline btn-sm" onclick="adminSetActiveSet('${ts.id}','${esc(ts.title)}','${esc(ts.date||'')}')">Set Active</button>`
           : isActive
             ? `<span class="pill pill-submitted">✓ Active</span> <button class="btn-outline btn-sm" onclick="adminMarkSetDone('${ts.id}')">Mark Session Done</button>`
             : `<button class="btn-outline btn-sm" onclick="adminSetActiveSet('${ts.id}','${esc(ts.title)}','${esc(ts.date||'')}')">Set Active</button>`;
@@ -2229,16 +2319,28 @@ function renderAdmin(){
     <div class="stat-box"><div class="num">${registeredForSet.length}</div><div class="lbl">Registered students</div></div>
     <div class="stat-box"><div class="num">${students.length}</div><div class="lbl">Logged in</div></div>
     <div class="stat-box"><div class="num">${completedCount}</div><div class="lbl">Completed test</div></div>
-    <div class="stat-box"><div class="num">${state.testStarted ? '<span id="globalElapsed">'+formatTime((Date.now()-state.testStartTime)/1000)+'</span>' : '—'}</div><div class="lbl">Elapsed since start</div></div>
+    <div class="stat-box">
+      <div class="num" id="adminSectionCountdown">${(!state.testStarted || !state.currentGlobalSection || state.currentGlobalSection==='completed') ? '—' : formatTime(Math.max(0,adminSectionCountdownRemaining()))}</div>
+      <div class="lbl">${!state.testStarted ? 'Not started yet' : (!state.currentGlobalSection || state.currentGlobalSection==='completed') ? 'All sections finished' : 'Time left — '+SECTION_LABEL[state.currentGlobalSection]}</div>
+    </div>
   </div>
 
   <div class="card">
     <div class="row" style="align-items:center;justify-content:space-between;">
       <div>
         <h3>Test Control</h3>
-        <p class="muted" style="margin:0;">${state.testStarted ? 'The test has started. All logged-in students move to the Listening section together.' : 'Make sure all students are logged in before pressing Test Start.'}</p>
+        <p class="muted" style="margin:0;">${
+          !state.testStarted ? 'Make sure all students are logged in before pressing Test Start.'
+          : (!state.currentGlobalSection || state.currentGlobalSection==='completed') ? 'All sections are finished — students are on their completion screen.'
+          : `Current section: <strong>${SECTION_LABEL[state.currentGlobalSection]}</strong>. Students' answers lock automatically once their own timer hits 00:00 — "Continue" unlocks a few minutes later so latecomers still get a fair shot.`
+        }</p>
       </div>
-      <button class="btn-primary" ${state.testStarted?'disabled':''} onclick="adminStartTest()">${state.testStarted?'✓ Test Started':'▶ Test Start'}</button>
+      ${!state.testStarted
+        ? `<button class="btn-primary" onclick="adminStartTest()">▶ Test Start</button>`
+        : (!state.currentGlobalSection || state.currentGlobalSection==='completed')
+          ? `<span class="pill pill-submitted">✓ Test Finished</span>`
+          : `<button class="btn-primary" id="continueBtn" ${adminSectionCountdownRemaining()>0?'disabled':''} onclick="adminContinueToNextSection()">${nextGlobalSection(state.currentGlobalSection)==='completed' ? '✓ Finish Test' : '▶ Continue to '+SECTION_LABEL[nextGlobalSection(state.currentGlobalSection)]}</button>`
+      }
     </div>
   </div>
 
@@ -2297,7 +2399,7 @@ function renderAdmin(){
             <td>${new Date(s.loginTime).toLocaleTimeString()}</td>
             ${SECTION_ORDER.map(key=>{
               const sec = s.sections[key];
-              const timer = sec.status==='in_progress' ? `<div class="muted" id="rem-${key}-${s.email}">${sectionRemaining(s,key)>0?formatTime(sectionRemaining(s,key)):('grace '+formatTime(sectionGraceRemaining(s,key)))}</div>` : '';
+              const timer = sec.status==='in_progress' ? `<div class="muted" id="rem-${key}-${s.email}">${formatTime(Math.max(0,sectionRemaining(s,key)))}</div>` : '';
               return `<td>${statusBadge(sec.status)}${timer}</td>`;
             }).join('')}
             <td>${allSectionsDone(s) ? `<button class="btn-secondary btn-sm" onclick="openGrading('${s.email}')">📝 Review${s.grading.reportSent?' ✓':''}</button>` : `<span class="muted" style="font-size:12px;">not yet complete</span>`}</td>
