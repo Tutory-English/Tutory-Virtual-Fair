@@ -1239,13 +1239,19 @@ function beginSection(student, key, startTime){
 function syncStudentToGlobalSection(student){
   if(!student || !state.currentGlobalSection) return false;
   if(student.currentSection === state.currentGlobalSection) return false;
+  // Whatever section they're being moved out of, if it was still showing
+  // "in_progress" (their own device never got a chance to auto-lock it —
+  // e.g. screen was off/backgrounded and its own timer never fired), lock
+  // it now as auto-submitted. Otherwise it would be left dangling at
+  // "in_progress" forever, which breaks allSectionsDone()/grading even
+  // though the student has already moved on.
+  const leaving = student.currentSection;
+  if(SECTION_ORDER.includes(leaving) && student.sections[leaving].status==='in_progress'){
+    student.sections[leaving].status = 'auto_submitted';
+    student.sections[leaving].autoSubmitted = true;
+    student.sections[leaving].submittedAt = Date.now();
+  }
   if(state.currentGlobalSection === 'completed'){
-    const cur = student.currentSection;
-    if(SECTION_ORDER.includes(cur) && student.sections[cur].status==='in_progress'){
-      student.sections[cur].status = 'auto_submitted';
-      student.sections[cur].autoSubmitted = true;
-      student.sections[cur].submittedAt = Date.now();
-    }
     student.currentSection = 'completed';
   }else{
     beginSection(student, state.currentGlobalSection, state.sectionStartTime);
