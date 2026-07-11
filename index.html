@@ -852,7 +852,8 @@ function defaultState(){
     testSets: [],             // populated live from Firestore "testSets" once admin signs in
     activeSetId: null,
     activeSetTitle: '',
-    activeSetDate: ''
+    activeSetDate: '',
+    viewingSetId: null        // admin-only, local: which set's data the dashboard is currently showing (defaults to the active set — lets the admin browse a different/past set's students & results without switching it live)
   };
 }
 
@@ -1359,9 +1360,22 @@ async function adminCreateTestSet(){
     alert('Failed to create the test set. Check your internet connection and try again.');
   }
 }
+// Switches which set's students/results the dashboard displays, WITHOUT
+// making it the live active set — lets the admin browse a past or upcoming
+// set's data (e.g. to re-check a report) without kicking anyone out or
+// resetting test-start status. Purely local to this admin's own browser.
+function adminViewTestSet(setId){
+  state.viewingSetId = setId;
+  render();
+}
+function adminClearSetView(){
+  state.viewingSetId = null;
+  render();
+}
 async function adminSetActiveSet(setId, title, date, skipConfirm){
   if(setId === state.activeSetId) return;
   if(!skipConfirm && !confirm(`Make "${title}" the active test set?\n\nStudents will only be able to log in if they were registered under this set. The test-start status resets to "not started" for the new set.`)) return;
+  state.viewingSetId = null; // follow the newly active set instead of whatever was being browsed
   try{
     await Promise.all([
       db.collection('control').doc('live').set({
@@ -2269,10 +2283,14 @@ function renderAdmin(){
   }
   const allStudents = Object.values(state.loggedInStudents);
   allStudents.forEach(ensureGrading);
-  // Everything on this dashboard is scoped to the currently active Test Set,
-  // so different sessions/dates never mix in the same view or report.
-  const students = allStudents.filter(s=>s.setId===state.activeSetId);
-  const registeredForSet = state.registeredStudents.filter(r=>r.setId===state.activeSetId);
+  // The dashboard shows whichever set is being "viewed" (defaults to the
+  // active set) — clicking a different set in the Test Sets card lets the
+  // admin browse its students/results without switching it live.
+  const viewSetId = state.viewingSetId || state.activeSetId;
+  const viewSet = state.testSets.find(t=>t.id===viewSetId);
+  const viewingActive = viewSetId === state.activeSetId;
+  const students = allStudents.filter(s=>s.setId===viewSetId);
+  const registeredForSet = state.registeredStudents.filter(r=>r.setId===viewSetId);
   const completedCount = students.filter(s=>s.currentSection==='completed').length;
   return `
   <div class="row" style="justify-content:flex-end;margin-bottom:10px;">
@@ -2291,29 +2309,37 @@ function renderAdmin(){
       <button class="btn-secondary" onclick="adminCreateTestSet()">+ Create Set</button>
     </div>
     ${state.testSets.length>0 ? `
-    <div style="margin-top:14px;">
+    <p class="muted" style="margin-top:14px;margin-bottom:6px;font-size:12.5px;">Click a set's name below to browse its students &amp; results on this dashboard (read-only, doesn't affect who's live).</p>
+    <div>
       ${state.testSets.map(ts=>{
         const isActive = ts.id===state.activeSetId;
         const isDone = ts.status==='done';
+        const isViewing = ts.id===viewSetId;
         // "Set Active" is always clickable, even on a Done set — clicking it
         // both un-marks Done and makes that set active in one step, so admins
         // never get stuck needing a separate "Reopen" click first.
         const statusHtml = isDone
-          ? `<span class="pill" style="background:#eee;color:#666;">Session Done</span> <button class="btn-outline btn-sm" onclick="adminSetActiveSet('${ts.id}','${esc(ts.title)}','${esc(ts.date||'')}')">Set Active</button>`
+          ? `<span class="pill" style="background:#eee;color:#666;">Session Done</span> <button class="btn-outline btn-sm" onclick="event.stopPropagation();adminSetActiveSet('${ts.id}','${esc(ts.title)}','${esc(ts.date||'')}')">Set Active</button>`
           : isActive
-            ? `<span class="pill pill-submitted">✓ Active</span> <button class="btn-outline btn-sm" onclick="adminMarkSetDone('${ts.id}')">Mark Session Done</button>`
-            : `<button class="btn-outline btn-sm" onclick="adminSetActiveSet('${ts.id}','${esc(ts.title)}','${esc(ts.date||'')}')">Set Active</button>`;
+            ? `<span class="pill pill-submitted">✓ Active</span> <button class="btn-outline btn-sm" onclick="event.stopPropagation();adminMarkSetDone('${ts.id}')">Mark Session Done</button>`
+            : `<button class="btn-outline btn-sm" onclick="event.stopPropagation();adminSetActiveSet('${ts.id}','${esc(ts.title)}','${esc(ts.date||'')}')">Set Active</button>`;
         return `
-        <div class="row" style="align-items:center;justify-content:space-between;border:1px solid var(--border);border-radius:9px;padding:8px 14px;margin-bottom:6px;">
-          <div><strong>${esc(ts.title)}</strong>${ts.date?` <span class="muted">· ${esc(ts.date)}</span>`:''}</div>
+        <div class="row" style="align-items:center;justify-content:space-between;border:1px solid ${isViewing?'var(--brand-dark)':'var(--border)'};background:${isViewing?'var(--brand-light)':'#fff'};border-radius:9px;padding:8px 14px;margin-bottom:6px;cursor:pointer;" onclick="adminViewTestSet('${ts.id}')" title="Click to view this set's students &amp; results">
+          <div><strong>${esc(ts.title)}</strong>${ts.date?` <span class="muted">· ${esc(ts.date)}</span>`:''}${isViewing?' <span class="muted" style="font-size:12px;">👁️ viewing</span>':''}</div>
           <div class="row" style="align-items:center;gap:8px;">
             ${statusHtml}
-            <button class="btn-outline btn-sm" title="Delete this test set and all its data" onclick="adminDeleteTestSet('${ts.id}','${esc(ts.title)}')">🗑️</button>
+            <button class="btn-outline btn-sm" title="Delete this test set and all its data" onclick="event.stopPropagation();adminDeleteTestSet('${ts.id}','${esc(ts.title)}')">🗑️</button>
           </div>
         </div>`;
       }).join('')}
     </div>` : ''}
   </div>
+
+  ${!viewingActive ? `
+  <div class="donts" style="margin-bottom:14px;">
+    👁️ Viewing <strong>${esc(viewSet?viewSet.title:'')}</strong>${viewSet&&viewSet.status==='done'?' (Session Done)':''} — read-only. Registration, Test Start, and audio only affect the active set (<strong>${esc(state.activeSetTitle)||'none'}</strong>).
+    <button class="btn-outline btn-sm" style="margin-left:8px;" onclick="adminClearSetView()">← Back to active set</button>
+  </div>` : ''}
 
   <div class="stat-grid">
     <div class="stat-box"><div class="num">${registeredForSet.length}</div><div class="lbl">Registered students</div></div>
@@ -2321,10 +2347,11 @@ function renderAdmin(){
     <div class="stat-box"><div class="num">${completedCount}</div><div class="lbl">Completed test</div></div>
     <div class="stat-box">
       <div class="num" id="adminSectionCountdown">${(!state.testStarted || !state.currentGlobalSection || state.currentGlobalSection==='completed') ? '—' : formatTime(Math.max(0,adminSectionCountdownRemaining()))}</div>
-      <div class="lbl">${!state.testStarted ? 'Not started yet' : (!state.currentGlobalSection || state.currentGlobalSection==='completed') ? 'All sections finished' : 'Time left — '+SECTION_LABEL[state.currentGlobalSection]}</div>
+      <div class="lbl">${!state.testStarted ? 'Not started yet' : (!state.currentGlobalSection || state.currentGlobalSection==='completed') ? 'All sections finished' : (viewingActive?'':'Active set — ')+'Time left — '+SECTION_LABEL[state.currentGlobalSection]}</div>
     </div>
   </div>
 
+  ${!viewingActive ? '' : `
   <div class="card">
     <div class="row" style="align-items:center;justify-content:space-between;">
       <div>
@@ -2380,9 +2407,10 @@ function renderAdmin(){
       <button id="bulkImportBtn" class="btn-secondary" onclick="adminBulkImport()">⬆️ Import List</button>
     </div>
   </div>
+  `}
 
   <div class="card">
-    <h3>Students (${students.length})</h3>
+    <h3>Students (${students.length})${viewingActive?'':' <span class="muted" style="font-weight:400;font-size:13px;">(viewing — read-only)</span>'}</h3>
     ${students.length===0 ? `<p class="muted">No students have logged in yet.</p>` : `
     <div class="field" style="max-width:320px;">
       <input type="text" id="studentSearchInput" placeholder="🔎 Search by name or email..." value="${esc(studentSearchQuery)}" oninput="filterStudentTable(this.value)">
