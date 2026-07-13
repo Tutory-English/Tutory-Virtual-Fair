@@ -2865,12 +2865,12 @@ function renderGradingPage(student){
     <h3>Result</h3>
     <div class="score-grid">
       <div class="score-box">
-        <div class="band">${effLBand}${lOverridden?' <span title="Manually adjusted by the teacher">†</span>':''}</div>
+        <div class="band">${effLBand}</div>
         <span class="cefr">${cefrFromBand(effLBand)}</span><div class="lbl2">Listening</div>
         ${locked ? '' : `<select class="no-print" style="margin-top:6px;font-size:11px;width:100%;" onchange="setListeningOverride(this.value)">${bandOverrideOptionsHTML(g.listeningOverride)}</select>`}
       </div>
       <div class="score-box">
-        <div class="band">${effRBand}${rOverridden?' <span title="Manually adjusted by the teacher">†</span>':''}</div>
+        <div class="band">${effRBand}</div>
         <span class="cefr">${cefrFromBand(effRBand)}</span><div class="lbl2">Reading</div>
         ${locked ? '' : `<select class="no-print" style="margin-top:6px;font-size:11px;width:100%;" onchange="setReadingOverride(this.value)">${bandOverrideOptionsHTML(g.readingOverride)}</select>`}
       </div>
@@ -2879,7 +2879,7 @@ function renderGradingPage(student){
       <div class="score-box score-box-overall"><div class="band">${overallScore!==null?overallScore:'—'}</div><span class="cefr">${cefrFromBand(overallScore)}</span><div class="lbl2">Overall Band Score</div></div>
     </div>
     ${overallScore===null ? `<p class="muted no-print" style="font-size:12px;margin-top:8px;">Overall Band Score will appear once all Writing &amp; Speaking criteria are scored.</p>` : ''}
-    <p class="muted" style="font-size:11.5px;margin-top:8px;">*Band scores are indicative, converted from the raw-score table / teacher rubric — they may differ from an official IELTS band score.${(lOverridden||rOverridden) ? ' †Manually adjusted by the teacher — not calculated from the recorded answers below (e.g. due to a technical issue during the test).' : ''}</p>
+    <p class="muted" style="font-size:11.5px;margin-top:8px;">*Band scores are indicative, converted from the raw-score table / teacher rubric — they may differ from an official IELTS band score.</p>
 
     <hr>
     <h3>Listening — Comment</h3>
