@@ -2534,8 +2534,14 @@ function renderAdmin(){
               return `<td>${statusBadge(sec.status)}${timer}</td>`;
             }).join('')}
             <td>
-              <button class="btn-secondary btn-sm" onclick="openGrading('${s.email}')">📝 Review${s.grading.reportSent?' ✓':''}</button>
-              ${allSectionsDone(s) ? '' : `<div class="muted" style="font-size:11px;margin-top:3px;">⚠️ not all sections locked yet</div>`}
+              <button class="btn-secondary btn-sm" onclick="openGrading('${s.email}')">📝 Review</button>
+              ${!allSectionsDone(s)
+                ? `<div class="muted" style="font-size:11px;margin-top:3px;">⚠️ not all sections locked yet</div>`
+                : s.grading.reportSent
+                  ? `<div style="margin-top:4px;"><span class="pill pill-submitted" style="font-size:11px;">✅ DONE</span></div>`
+                  : s.grading.locked
+                    ? `<div style="margin-top:4px;"><button class="btn-outline btn-sm" style="font-size:11px;padding:2px 8px;" onclick="openGrading('${s.email}')">📤 Ready to Share</button></div>`
+                    : ''}
             </td>
             <td><button class="btn-outline btn-sm" title="Delete this student's session/answers" onclick="adminDeleteSession('${s.email}','${esc(s.name)}')">🗑️</button></td>
           </tr>`).join('')}
