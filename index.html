@@ -2790,7 +2790,6 @@ function renderWritingGradingBlock(student, task, locked){
   <div class="no-print" style="margin-bottom:24px;border:1px dashed var(--border);border-radius:10px;padding:14px;">
     <h4 style="margin-top:0;">Writing ${taskLabel} — scoring workspace ${band!==null ? `<span class="pill pill-progress" style="margin-left:6px;">Band ${band}</span>` : ''}</h4>
     <p class="muted" style="font-size:12px;">Teacher-only, for working out the band — not shown on the student's report. Only the overall Writing comment below is.</p>
-    ${task==='task1' ? renderTask1Diagram() : ''}
     ${locked ? '' : `
     <label style="font-weight:600;font-size:12.5px;display:block;margin-bottom:4px;">Essay text${rawText?'':' — not recorded, type or paste it in manually'}</label>
     <textarea rows="6" style="margin-bottom:8px;" placeholder="Paste or type the student's ${taskLabel} answer here if it wasn't recorded..." oninput="setManualWritingText('${task}', this.value)">${esc(rawText)}</textarea>
