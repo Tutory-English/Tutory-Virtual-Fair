@@ -2362,9 +2362,21 @@ function openGrading(email){
   render();
 }
 function closeGrading(){
+  const email = state.adminReviewingEmail;
   state.adminReviewingEmail = null;
   saveState();
   render();
+  // Jump straight back to the student's row instead of leaving the admin
+  // scrolled to the top of a long list every time they close a review.
+  if(email){
+    const rows = document.querySelectorAll('tr[data-email]');
+    for(const row of rows){
+      if(row.getAttribute('data-email') === email){
+        row.scrollIntoView({block:'center'});
+        break;
+      }
+    }
+  }
 }
 
 function renderAdmin(){
@@ -2524,7 +2536,7 @@ function renderAdmin(){
       </tr></thead>
       <tbody id="studentsTableBody">
         ${students.map(s=>`
-          <tr data-search="${esc((s.name+' '+s.email).toLowerCase())}">
+          <tr data-search="${esc((s.name+' '+s.email).toLowerCase())}" data-email="${esc(s.email)}">
             <td>${esc(s.name)}</td>
             <td>${esc(s.email)}</td>
             <td>${new Date(s.loginTime).toLocaleTimeString()}</td>
@@ -2540,7 +2552,10 @@ function renderAdmin(){
                 : s.grading.reportSent
                   ? `<div style="margin-top:4px;"><span class="pill pill-submitted" style="font-size:11px;">✅ DONE</span></div>`
                   : s.grading.locked
-                    ? `<div style="margin-top:4px;"><button class="btn-outline btn-sm" style="font-size:11px;padding:2px 8px;" onclick="openGrading('${s.email}')">📤 Ready to Share</button></div>`
+                    ? `<div style="margin-top:4px;">
+                        <button class="btn-outline btn-sm" style="font-size:11px;padding:2px 8px;" onclick="openGrading('${s.email}')">📤 Ready to Share</button>
+                        ${!s.phone ? `<div class="muted" style="font-size:10.5px;margin-top:2px;">⚠️ WA number still empty</div>` : ''}
+                      </div>`
                     : ''}
             </td>
             <td><button class="btn-outline btn-sm" title="Delete this student's session/answers" onclick="adminDeleteSession('${s.email}','${esc(s.name)}')">🗑️</button></td>
