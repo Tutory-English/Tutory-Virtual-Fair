@@ -864,9 +864,9 @@ function defaultState(){
   };
 }
 
-function newStudent(email,name){
+function newStudent(email,name,phone){
   return {
-    email, name,
+    email, name, phone: phone||'',
     loginTime: Date.now(),
     currentSection:'waiting', // waiting -> listening -> reading -> writing -> completed
     sections:{
@@ -881,6 +881,7 @@ function newStudent(email,name){
       },
       speaking:{ criteria:{FC:'',LR:'',GRA:'',PRON:''} },
       notes:'',
+      writingComment:'',
       reportSent:false,
       reportSentAt:null
     }
@@ -917,7 +918,7 @@ function buildDemoStudent(){
   const task2Text = "Nowadays, an increasing number of students choose to pursue part or all of their education in another country. While some people believe that studying abroad offers little real advantage, I would argue that the benefits generally outweigh the drawbacks.\n\nOne of the strongest arguments in favour of studying abroad is the exposure to a different culture and language. Living in an unfamiliar environment forces students to adapt quickly, communicate in a foreign language, and build independence, skills that are difficult to develop within a familiar setting. In addition, universities in other countries often have strong reputations in specific fields, so students may gain access to better facilities, more experienced lecturers, and wider research opportunities than are available at home.\n\nOn the other hand, opponents of studying abroad point out that high costs, homesickness, and the difficulty of adjusting to a new academic system can outweigh these benefits. It is true that tuition fees and living expenses abroad are often considerably higher, and some students may struggle emotionally when separated from their family and support network for long periods.\n\nHowever, I believe these challenges can usually be managed through careful planning, scholarships, and support services that most universities now provide for international students. The long-term gains in personal growth, language ability, and career opportunities generally justify the short-term difficulties.\n\nIn conclusion, although studying abroad involves financial and emotional challenges, I believe the advantages, particularly in terms of independence, cultural understanding, and academic opportunity, make it a valuable choice for students who are able to pursue it.";
 
   return {
-    email: DEMO_EMAIL, name: DEMO_NAME,
+    email: DEMO_EMAIL, name: DEMO_NAME, phone: '+6281234567890',
     loginTime: startedAt,
     currentSection: 'completed',
     sections:{
@@ -944,6 +945,7 @@ function buildDemoStudent(){
       },
       speaking:{ criteria:{FC:'7', LR:'7', GRA:'6', PRON:'7'} },
       notes:'Overall a strong performance. Focus on developing ideas a little further in Writing Task 2 and keep practising less common vocabulary for Speaking Part 3 topics.',
+      writingComment:'A well-organised Task 1 report and a clearly argued Task 2 essay, with good control of linking and vocabulary. Keep working on developing ideas in Task 2 a little further and tightening up complex grammar for an even stronger score.',
       reportSent:false,
       reportSentAt:null
     }
@@ -1037,7 +1039,7 @@ let unsubTestSets=null;
 function attachAdminListeners(){
   if(unsubWhitelist) return; // already attached
   unsubWhitelist = db.collection('whitelist').onSnapshot(snap=>{
-    state.registeredStudents = snap.docs.map(d=>({email:d.id, name:(d.data()||{}).name||'', setId:(d.data()||{}).setId||null}));
+    state.registeredStudents = snap.docs.map(d=>({email:d.id, name:(d.data()||{}).name||'', phone:(d.data()||{}).phone||'', setId:(d.data()||{}).setId||null}));
     render();
   }, err=>console.error('Whitelist listener error:', err));
   unsubSessions = db.collection('sessions').onSnapshot(snap=>{
@@ -1197,7 +1199,7 @@ async function loginStudent(email){
     if(sDoc.exists && sDoc.data().setId === state.activeSetId){
       student = sDoc.data(); // rejoin: resume existing progress (same or different device)
     }else{
-      student = newStudent(email, name);
+      student = newStudent(email, name, wData.phone||'');
       student.setId = state.activeSetId;
       student.setTitle = state.activeSetTitle;
       student.setDate = state.activeSetDate;
@@ -1521,6 +1523,7 @@ async function adminRegisterStudent(){
   if(!state.activeSetId){ alert('Select (or create) an active Test Set first — see the "Test Sets" card above.'); return; }
   const name = document.getElementById('regName').value.trim();
   const email = document.getElementById('regEmail').value.trim().toLowerCase();
+  const phone = document.getElementById('regPhone').value.trim();
   if(!name || !email){ alert('Please fill in both name and email first.'); return; }
   const btn = document.getElementById('regSubmitBtn');
   if(btn) btn.disabled = true;
@@ -1530,9 +1533,10 @@ async function adminRegisterStudent(){
     if(existing.exists && (existing.data()||{}).setId === state.activeSetId){
       alert('This email is already registered for the current test set.'); if(btn) btn.disabled=false; return;
     }
-    await ref.set({name, setId: state.activeSetId, addedAt: firebase.firestore.FieldValue.serverTimestamp()});
+    await ref.set({name, phone, setId: state.activeSetId, addedAt: firebase.firestore.FieldValue.serverTimestamp()});
     document.getElementById('regName').value='';
     document.getElementById('regEmail').value='';
+    document.getElementById('regPhone').value='';
     // state.registeredStudents updates automatically via the whitelist listener
   }catch(err){
     console.error(err);
@@ -1600,6 +1604,7 @@ function parseBulkImportText(raw){
   // delimiter — handles tab-separated (Excel/Sheets paste), comma-separated
   // (CSV paste), or plain multi-space-aligned paste equally well.
   const emailSearchRe = /[^\s,;\t]+@[^\s,;\t]+\.[^\s,;\t]+/;
+  const phoneRe = /^[+\d][\d\s-]{5,}$/;
   const lines = raw.split('\n').map(l=>l.trim()).filter(Boolean);
   const rows = [];
   for(const line of lines){
@@ -1608,13 +1613,16 @@ function parseBulkImportText(raw){
     const email = match[0].toLowerCase().replace(/[.,;]+$/,'');
     // whatever's left on the line, once the email itself is removed
     let rest = (line.slice(0, match.index) + ' ' + line.slice(match.index + match[0].length));
-    // drop a leading row number ("1", "1.", "1)") and any phone-number-looking tokens
-    rest = rest
+    const tokens = rest
       .split(/[\t,;]+|\s{2,}/) // split on tabs/commas/semicolons or runs of 2+ spaces
       .map(p=>p.trim())
-      .filter(p=>p.length>0 && /[a-zA-Z]/.test(p) && !/^\d+[.)]?$/.test(p) && !/^[+\d][\d\s-]{5,}$/.test(p));
-    const name = rest.sort((a,b)=>b.length-a.length)[0] || email;
-    rows.push({name, email});
+      .filter(p=>p.length>0 && !/^\d+[.)]?$/.test(p)); // drop a leading row number ("1", "1.", "1)")
+    // a WhatsApp/phone number column, if present, is captured separately
+    const phoneToken = tokens.find(p=>phoneRe.test(p));
+    const phone = phoneToken ? phoneToken.replace(/[\s-]/g,'') : '';
+    const nameTokens = tokens.filter(p=>/[a-zA-Z]/.test(p) && !phoneRe.test(p));
+    const name = nameTokens.sort((a,b)=>b.length-a.length)[0] || email;
+    rows.push({name, email, phone});
   }
   return rows;
 }
@@ -1630,12 +1638,12 @@ async function adminBulkImport(){
   const btn = document.getElementById('bulkImportBtn');
   if(btn) btn.disabled = true;
   let added = 0, skipped = 0, failed = 0;
-  for(const {name, email} of rows){
+  for(const {name, email, phone} of rows){
     try{
       const ref = db.collection('whitelist').doc(email);
       const existing = await ref.get();
       if(existing.exists && (existing.data()||{}).setId === state.activeSetId){ skipped++; continue; }
-      await ref.set({name, setId: state.activeSetId, addedAt: firebase.firestore.FieldValue.serverTimestamp()});
+      await ref.set({name, phone: phone||'', setId: state.activeSetId, addedAt: firebase.firestore.FieldValue.serverTimestamp()});
       added++;
     }catch(err){
       console.error('Bulk import failed for', email, err);
@@ -2314,6 +2322,7 @@ function allSectionsDone(student){
   });
 }
 function ensureGrading(student){
+  if(!('phone' in student)) student.phone = '';
   if(!student.grading){
     student.grading = {
       writing:{
@@ -2322,19 +2331,27 @@ function ensureGrading(student){
       },
       speaking:{ criteria:{FC:'',LR:'',GRA:'',PRON:''} },
       notes:'',
+      writingComment:'',
       reportSent:false,
       reportSentAt:null,
       locked:false,
       listeningOverride:null,
-      readingOverride:null
+      readingOverride:null,
+      listeningComment:'',
+      readingComment:'',
+      speakingComment:''
     };
     return;
   }
   // Backfill fields added after this student's grading object was first
   // created (e.g. from earlier today), so older/in-progress sessions don't
-  // silently miss newer functionality like manual band overrides.
+  // silently miss newer functionality like manual band overrides/comments.
   if(!('listeningOverride' in student.grading)) student.grading.listeningOverride = null;
   if(!('readingOverride' in student.grading)) student.grading.readingOverride = null;
+  if(!('listeningComment' in student.grading)) student.grading.listeningComment = '';
+  if(!('readingComment' in student.grading)) student.grading.readingComment = '';
+  if(!('speakingComment' in student.grading)) student.grading.speakingComment = '';
+  if(!('writingComment' in student.grading)) student.grading.writingComment = '';
   if(!('locked' in student.grading)) student.grading.locked = false;
 }
 function openGrading(email){
@@ -2468,20 +2485,21 @@ function renderAdmin(){
 
   <div class="card">
     <h3>Manual Registration</h3>
-    <p class="muted">Register a student whose email isn't in the system yet.</p>
+    <p class="muted">Register a student whose email isn't in the system yet. WhatsApp number is optional but needed to send them their report via WhatsApp later.</p>
     <div class="row">
       <input id="regName" placeholder="Full name" style="flex:1;min-width:180px;">
       <input id="regEmail" placeholder="Email" style="flex:1;min-width:180px;">
+      <input id="regPhone" placeholder="WhatsApp number (e.g. 628123456789)" style="flex:1;min-width:180px;">
       <button id="regSubmitBtn" class="btn-secondary" onclick="adminRegisterStudent()">+ Register</button>
     </div>
     <div style="margin-top:10px;">
-      ${registeredForSet.map(r=>`<span class="chip">${esc(r.name)} · ${esc(r.email)} <button onclick="adminRemoveRegistered('${r.email}')" title="Remove">✕</button></span>`).join('')}
+      ${registeredForSet.map(r=>`<span class="chip">${esc(r.name)} · ${esc(r.email)}${r.phone?' · 📱'+esc(r.phone):''} <button onclick="adminRemoveRegistered('${r.email}')" title="Remove">✕</button></span>`).join('')}
     </div>
   </div>
 
   <div class="card">
     <h3>Bulk Import Students</h3>
-    <p class="muted">Upload your student list as a CSV or Excel file, or copy the Full Name and Email columns from your spreadsheet and paste them below (one student per line). Extra columns like No. or WhatsApp Number are fine — they'll be ignored automatically.</p>
+    <p class="muted">Upload your student list as a CSV or Excel file, or copy the Full Name, Email, and WhatsApp Number columns from your spreadsheet and paste them below (one student per line). The WhatsApp number is used later to send the finished report.</p>
     <div class="field">
       <label>Upload CSV / Excel file</label>
       <input type="file" id="bulkImportFile" accept=".csv,.xlsx,.xls" onchange="handleBulkImportFile(this.files[0])">
@@ -2615,16 +2633,110 @@ function setGradingNotes(value){
   student.grading.notes = value;
   saveState();
 }
-function sendReport(){
+function setListeningComment(value){
   const student = getStudent(state.adminReviewingEmail);
   if(!student) return;
-  if(!confirm(`Send the test report to ${student.email}?\n\n(This prototype simulates sending — it isn't connected to a real email server yet.)`)) return;
+  student.grading.listeningComment = value;
+  saveState();
+}
+function setReadingComment(value){
+  const student = getStudent(state.adminReviewingEmail);
+  if(!student) return;
+  student.grading.readingComment = value;
+  saveState();
+}
+function setSpeakingComment(value){
+  const student = getStudent(state.adminReviewingEmail);
+  if(!student) return;
+  student.grading.speakingComment = value;
+  saveState();
+}
+function setWritingComment(value){
+  const student = getStudent(state.adminReviewingEmail);
+  if(!student) return;
+  student.grading.writingComment = value;
+  saveState();
+}
+// Lets the teacher type/paste the student's essay in manually during review
+// (e.g. when the recorded answer is missing due to a technical issue). Saves
+// straight into the same field the student's own typing would have filled,
+// then live-updates the highlighted preview below without a full re-render
+// (so the textarea doesn't lose focus on every keystroke).
+function setManualWritingText(task, value){
+  const student = getStudent(state.adminReviewingEmail);
+  if(!student) return;
+  student.sections.writing.answers[task] = value;
+  saveState();
+  const preview = document.getElementById('writingText-'+task);
+  if(preview) preview.innerHTML = buildHighlightedHTML(value, student.grading.writing.comments[task]);
+}
+function setStudentPhone(value){
+  const student = getStudent(state.adminReviewingEmail);
+  if(!student) return;
+  student.phone = value;
+  saveState();
+}
+// Turns whatever the admin typed into the WhatsApp Number field into the
+// digits-only, country-code-first format wa.me needs (e.g. "0812-345-678"
+// -> "62812345678"). Assumes a leading 0 means an Indonesian local number.
+function sanitizePhoneForWA(phone){
+  let digits = (phone||'').replace(/[^\d]/g,'');
+  if(digits.startsWith('0')) digits = '62' + digits.slice(1);
+  return digits;
+}
+// Builds the plain-text WhatsApp message: a summary of all four band scores
+// plus the overall score, each skill's overall comment, and the teacher's
+// notes — no per-question or per-criterion detail.
+function buildReportWAText(student){
+  const g = student.grading;
+  const lGrade = gradeListening(student.sections.listening);
+  const rGrade = gradeReading(student.sections.reading);
+  const lBand = rawScoreToBand(lGrade.correct);
+  const rBand = rawScoreToBand(rGrade.correct);
+  const effLBand = g.listeningOverride!=null ? g.listeningOverride : lBand;
+  const effRBand = g.readingOverride!=null ? g.readingOverride : rBand;
+  const wOverall = computeOverallWritingBand(g.writing.criteria.task1, g.writing.criteria.task2);
+  const sBand = computeSpeakingBand(g.speaking.criteria);
+  const overallScore = computeOverallScore(effLBand, effRBand, wOverall, sBand);
+  const dateSource = student.sections.listening.startTime || student.loginTime;
+  const dateTaken = new Date(dateSource).toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'});
+  const fmt = (b)=> (b===null||b===undefined) ? '—' : String(b);
+  const lines = [
+    `*Tutory English — Virtual Fair Mock Test Result*`,
+    ``,
+    `Hi ${student.name},`,
+    `Here's the result of your mock test${student.setTitle?' ('+student.setTitle+')':''} on ${dateTaken}:`,
+    ``,
+    `📘 *Listening: ${fmt(effLBand)}* (${cefrFromBand(effLBand)})`,
+    ...(g.listeningComment ? [g.listeningComment, ``] : [``]),
+    `📗 *Reading: ${fmt(effRBand)}* (${cefrFromBand(effRBand)})`,
+    ...(g.readingComment ? [g.readingComment, ``] : [``]),
+    `📝 *Writing: ${fmt(wOverall)}* (${cefrFromBand(wOverall)})`,
+    ...(g.writingComment ? [g.writingComment, ``] : [``]),
+    `🗣️ *Speaking: ${fmt(sBand)}* (${cefrFromBand(sBand)})`,
+    ...(g.speakingComment ? [g.speakingComment, ``] : [``]),
+    `⭐ *Overall Band Score: ${fmt(overallScore)}* (${cefrFromBand(overallScore)})`,
+    ``,
+    ...(g.notes ? [`Notes from the teacher:`, g.notes, ``] : []),
+    `Thank you for joining the Tutory 2026 Virtual Fair! 🎉`
+  ];
+  return lines.join('\n').trim();
+}
+function sendReportWA(){
+  const student = getStudent(state.adminReviewingEmail);
+  if(!student) return;
+  const digits = sanitizePhoneForWA(student.phone);
+  if(!digits){
+    alert('No WhatsApp number on file for this student yet. Fill in the "WhatsApp Number" field above (in the report) first.');
+    return;
+  }
+  const text = buildReportWAText(student);
+  window.open(`https://wa.me/${digits}?text=${encodeURIComponent(text)}`, '_blank');
   student.grading.reportSent = true;
   student.grading.reportSentAt = Date.now();
   saveState();
   syncStudentNow(student.email);
   render();
-  alert('Simulation: report "sent" to '+student.email+'.\n\nFor real PDF email delivery, the system needs a backend + an email service (e.g. SendGrid/Mailgun), to be built in a future development phase.');
 }
 function printReport(){
   window.print();
@@ -2670,19 +2782,27 @@ function renderWritingGradingBlock(student, task, locked){
   const comments = g.comments[task];
   const taskLabel = task==='task1' ? 'Task 1' : 'Task 2';
   const band = computeTaskBand(g.criteria[task]);
+  // This entire block is a teacher-only scoring workspace (no-print) — it's
+  // used to work out the Writing band but is never shown to the student.
+  // The single overall Writing comment (rendered separately, below both
+  // tasks) is the only Writing feedback that appears on the printed report.
   return `
-  <div style="margin-bottom:24px;">
-    <h4>Writing ${taskLabel} ${band!==null ? `<span class="pill pill-progress" style="margin-left:6px;">Band ${band}</span>` : ''}</h4>
+  <div class="no-print" style="margin-bottom:24px;border:1px dashed var(--border);border-radius:10px;padding:14px;">
+    <h4 style="margin-top:0;">Writing ${taskLabel} — scoring workspace ${band!==null ? `<span class="pill pill-progress" style="margin-left:6px;">Band ${band}</span>` : ''}</h4>
+    <p class="muted" style="font-size:12px;">Teacher-only, for working out the band — not shown on the student's report. Only the overall Writing comment below is.</p>
     ${task==='task1' ? renderTask1Diagram() : ''}
-    ${locked ? '' : `<p class="muted no-print" style="font-size:12.5px;">Select part of the student's answer below, then click "+ Add Comment".</p>`}
+    ${locked ? '' : `
+    <label style="font-weight:600;font-size:12.5px;display:block;margin-bottom:4px;">Essay text${rawText?'':' — not recorded, type or paste it in manually'}</label>
+    <textarea rows="6" style="margin-bottom:8px;" placeholder="Paste or type the student's ${taskLabel} answer here if it wasn't recorded..." oninput="setManualWritingText('${task}', this.value)">${esc(rawText)}</textarea>
+    <p class="muted" style="font-size:12.5px;">Select part of the text below, then click "+ Add Comment".</p>`}
     <div id="writingText-${task}" style="border:1px solid var(--border);border-radius:10px;padding:14px;font-size:14px;line-height:1.7;white-space:pre-line;margin-bottom:8px;">${buildHighlightedHTML(rawText, comments)}</div>
-    ${locked ? '' : `<button class="btn-outline btn-sm no-print" onclick="addWritingComment('${task}')">+ Add Comment on Selected Text</button>`}
+    ${locked ? '' : `<button class="btn-outline btn-sm" onclick="addWritingComment('${task}')">+ Add Comment on Selected Text</button>`}
     ${comments.length ? `
       <div style="margin-top:10px;">
         ${comments.map((c,i)=>`
           <div style="background:var(--brand-light);border-radius:8px;padding:10px 12px;margin-bottom:6px;font-size:13px;">
             <strong>#${i+1}</strong> "${esc(c.quote)}" — ${esc(c.comment)}
-            ${locked ? '' : `<button class="no-print" style="background:none;color:var(--danger);float:right;font-size:12px;" onclick="removeWritingComment('${task}',${i})">Delete</button>`}
+            ${locked ? '' : `<button style="background:none;color:var(--danger);float:right;font-size:12px;" onclick="removeWritingComment('${task}',${i})">Delete</button>`}
           </div>`).join('')}
       </div>` : ''}
     <div style="margin-top:14px;">
@@ -2706,8 +2826,6 @@ function renderGradingPage(student){
   const wOverall = computeOverallWritingBand(g.writing.criteria.task1, g.writing.criteria.task2);
   const sBand = computeSpeakingBand(g.speaking.criteria);
   const overallScore = computeOverallScore(effLBand, effRBand, wOverall, sBand);
-  const lWrong = listeningWrongDetails(student.sections.listening);
-  const rWrong = readingWrongDetails(student.sections.reading);
   const dateSource = student.sections.listening.startTime || student.loginTime;
   const dateTaken = new Date(dateSource).toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'});
   const locked = !!g.locked;
@@ -2736,6 +2854,12 @@ function renderGradingPage(student){
       <div><span class="lbl3">Date Taken</span><div class="val3">${dateTaken}</div></div>
       <div><span class="lbl3">Email</span><div class="val3">${esc(student.email)}</div></div>
       <div><span class="lbl3">Test Set</span><div class="val3">${student.setTitle ? esc(student.setTitle) : '—'}</div></div>
+      <div>
+        <span class="lbl3">WhatsApp Number</span>
+        ${locked
+          ? `<div class="val3">${student.phone ? esc(student.phone) : '—'}</div>`
+          : `<input class="no-print" style="width:100%;" placeholder="e.g. 0812xxxxxxx" value="${esc(student.phone||'')}" onchange="setStudentPhone(this.value)">`}
+      </div>
     </div>
 
     <hr>
@@ -2759,24 +2883,39 @@ function renderGradingPage(student){
     <p class="muted" style="font-size:11.5px;margin-top:8px;">*Band scores are indicative, converted from the raw-score table / teacher rubric — they may differ from an official IELTS band score.${(lOverridden||rOverridden) ? ' †Manually adjusted by the teacher — not calculated from the recorded answers below (e.g. due to a technical issue during the test).' : ''}</p>
 
     <hr>
-    <h3>Listening — Detailed Feedback</h3>
-    <p class="muted">${lGrade.correct} out of 40 correct (${40-lGrade.correct} incorrect).${lOverridden?' <strong>Band shown above was manually adjusted by the teacher.</strong>':''}</p>
-    ${renderWrongTable(lWrong)}
+    <h3>Listening — Comment</h3>
+    ${locked
+      ? (g.listeningComment ? `<p style="font-size:13.5px;line-height:1.6;">${esc(g.listeningComment)}</p>` : `<p class="muted" style="font-size:13px;">No comment yet.</p>`)
+      : `<textarea class="no-print" rows="3" placeholder="Comment on the student's Listening performance..." oninput="setListeningComment(this.value)">${esc(g.listeningComment||'')}</textarea>
+         ${g.listeningComment ? `<p style="font-size:13.5px;line-height:1.6;">${esc(g.listeningComment)}</p>` : ''}`}
 
     <hr>
-    <h3>Reading — Detailed Feedback</h3>
-    <p class="muted">${rGrade.correct} out of 40 correct (${40-rGrade.correct} incorrect).${rOverridden?' <strong>Band shown above was manually adjusted by the teacher.</strong>':''}</p>
-    ${renderWrongTable(rWrong)}
+    <h3>Reading — Comment</h3>
+    ${locked
+      ? (g.readingComment ? `<p style="font-size:13.5px;line-height:1.6;">${esc(g.readingComment)}</p>` : `<p class="muted" style="font-size:13px;">No comment yet.</p>`)
+      : `<textarea class="no-print" rows="3" placeholder="Comment on the student's Reading performance..." oninput="setReadingComment(this.value)">${esc(g.readingComment||'')}</textarea>
+         ${g.readingComment ? `<p style="font-size:13.5px;line-height:1.6;">${esc(g.readingComment)}</p>` : ''}`}
 
     <hr>
-    <h3>Writing — Detailed Feedback</h3>
+    <h3>Writing — Comment</h3>
+    ${locked
+      ? (g.writingComment ? `<p style="font-size:13.5px;line-height:1.6;">${esc(g.writingComment)}</p>` : `<p class="muted" style="font-size:13px;">No comment yet.</p>`)
+      : `<textarea class="no-print" rows="3" placeholder="Overall comment on the student's Writing (Task 1 &amp; Task 2)..." oninput="setWritingComment(this.value)">${esc(g.writingComment||'')}</textarea>
+         ${g.writingComment ? `<p style="font-size:13.5px;line-height:1.6;">${esc(g.writingComment)}</p>` : ''}`}
     ${renderWritingGradingBlock(student,'task1',locked)}
     ${renderWritingGradingBlock(student,'task2',locked)}
 
     <hr>
-    <h3>Speaking — Detailed Feedback</h3>
-    <p class="muted" style="font-size:12.5px;">Speaking is assessed manually by the teacher (no recorded speaking submission in this system).</p>
-    ${SPEAKING_CRITERIA.map(c=>renderCriterionRow(c, g.speaking.criteria[c.key], `setSpeakingCriteria('${c.key}', this.value)`, locked)).join('')}
+    <h3>Speaking — Comment</h3>
+    <p class="muted no-print" style="font-size:12.5px;">Speaking is assessed manually by the teacher (no recorded speaking submission in this system).</p>
+    <div class="no-print" style="border:1px dashed var(--border);border-radius:10px;padding:14px;margin-bottom:10px;">
+      <p class="muted" style="font-size:12px;margin-top:0;">Teacher-only, for working out the band — not shown on the student's report.</p>
+      ${SPEAKING_CRITERIA.map(c=>renderCriterionRow(c, g.speaking.criteria[c.key], `setSpeakingCriteria('${c.key}', this.value)`, locked)).join('')}
+    </div>
+    ${locked
+      ? (g.speakingComment ? `<p style="font-size:13.5px;line-height:1.6;margin-top:10px;">${esc(g.speakingComment)}</p>` : `<p class="muted" style="font-size:13px;">No comment yet.</p>`)
+      : `<textarea class="no-print" rows="3" style="margin-top:10px;" placeholder="Comment on the student's Speaking performance..." oninput="setSpeakingComment(this.value)">${esc(g.speakingComment||'')}</textarea>
+         ${g.speakingComment ? `<p style="font-size:13.5px;line-height:1.6;">${esc(g.speakingComment)}</p>` : ''}`}
 
     <hr>
     <h3>Additional Notes</h3>
@@ -2800,7 +2939,7 @@ function renderGradingPage(student){
       ? `<button class="btn-secondary" onclick="adminUnlockGrading()">✏️ Edit Result</button>`
       : `<button class="btn-primary" onclick="adminLockGrading()">🔒 Save &amp; Lock Result</button>`}
     <button class="btn-outline" onclick="printReport()">🖨️ Print / Save as PDF</button>
-    <button class="btn-primary" onclick="sendReport()">✉️ Send to Student Email</button>
+    <button class="btn-primary" id="sendReportBtn" onclick="sendReportWA()">📱 Send via WhatsApp</button>
   </div>
   `;
 }
