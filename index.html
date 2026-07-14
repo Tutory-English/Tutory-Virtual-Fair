@@ -2038,7 +2038,9 @@ const WRITING_CRITERIA = [
     7:{have:'addressed all parts of the task, with generally well-developed ideas', grow:'work on developing some of your less detailed points further'},
     6:{have:'addressed the task overall, though some parts were less developed than others', grow:'make sure every part of the task receives equal attention and development'},
     5:{have:'only partially addressed the task, with an inconsistent or unclear focus', grow:'reread the task carefully and make sure every requirement is covered'},
-    4:{have:'given a response that is only loosely related to what the task asked', grow:'practice identifying exactly what each part of the task is asking for'}
+    4:{have:'given a response that is only loosely related to what the task asked', grow:'practice identifying exactly what each part of the task is asking for'},
+    3:{have:'answered the task only minimally, with ideas that were barely relevant or hard to identify', grow:'read the task carefully and make sure you attempt every part of what is being asked'},
+    2:{have:'barely addressed the task, with little connection between the response and what was asked', grow:'practice basic task-response skills by identifying the topic and instruction in simple tasks first'}
   }},
   {key:'CC', label:'Coherence & Cohesion', bands:{
     9:{have:'organised ideas with seamless, natural progression and skilful use of linking', grow:'keep this natural flow consistent across longer, more complex responses'},
@@ -2046,7 +2048,9 @@ const WRITING_CRITERIA = [
     7:{have:'arranged information coherently with a clear overall progression', grow:'tighten your paragraphing so each one centres on a single clear idea'},
     6:{have:'arranged information coherently, though linking and paragraphing weren’t always effective', grow:'use a wider range of linking words instead of repeating the same ones'},
     5:{have:'shown some organisation, but the writing lacked overall progression', grow:'plan your structure before writing so ideas build on each other logically'},
-    4:{have:'written ideas that were difficult to follow due to little organisation', grow:'practice grouping related ideas into clear paragraphs before elaborating'}
+    4:{have:'written ideas that were difficult to follow due to little organisation', grow:'practice grouping related ideas into clear paragraphs before elaborating'},
+    3:{have:'presented ideas with little logical order, making the response hard to follow', grow:'practice organising ideas into a simple beginning-middle-end structure before writing'},
+    2:{have:'shown almost no organisation, with ideas that did not connect to each other', grow:'start by writing short, simple paragraphs with one clear idea each'}
   }},
   {key:'LR', label:'Lexical Resource', bands:{
     9:{have:'used a wide, precise, and natural range of vocabulary with full flexibility', grow:'keep expanding your range of natural, idiomatic expressions'},
@@ -2054,7 +2058,9 @@ const WRITING_CRITERIA = [
     7:{have:'used sufficient vocabulary to allow some flexibility, with minor inaccuracies', grow:'reduce word-choice slips by reviewing collocations and near-synonyms'},
     6:{have:'used adequate vocabulary for the task, with some noticeable errors', grow:'learn more topic-specific vocabulary to avoid repeating simple words'},
     5:{have:'used limited vocabulary with noticeable repetition and errors', grow:'build your active vocabulary through regular reading and word journaling'},
-    4:{have:'used very basic, repetitive vocabulary that sometimes obscured meaning', grow:'focus on learning and correctly using everyday academic vocabulary'}
+    4:{have:'used very basic, repetitive vocabulary that sometimes obscured meaning', grow:'focus on learning and correctly using everyday academic vocabulary'},
+    3:{have:'used a very narrow range of vocabulary that often did not fit the topic', grow:'build a basic topic-specific word list and practice using it in simple sentences'},
+    2:{have:'used only isolated words or memorised phrases with little control of vocabulary', grow:'focus on learning and practising everyday, high-frequency vocabulary first'}
   }},
   {key:'GRA', label:'Grammatical Range & Accuracy', bands:{
     9:{have:'used a wide range of structures with full flexibility and accuracy', grow:'keep producing complex sentences with this level of natural accuracy'},
@@ -2062,7 +2068,9 @@ const WRITING_CRITERIA = [
     7:{have:'used a mix of simple and complex sentences that were generally well controlled', grow:'increase accuracy when forming more complex or conditional sentences'},
     6:{have:'used a mix of sentence forms, with noticeable errors in complex structures', grow:'practice complex sentences slowly and check them for consistent accuracy'},
     5:{have:'used a limited range of structures with frequent grammatical errors', grow:'review basic sentence patterns and common tense/agreement errors'},
-    4:{have:'used only very simple sentence forms with frequent errors that affected meaning', grow:'practice building simple, accurate sentences before attempting complex ones'}
+    4:{have:'used only very simple sentence forms with frequent errors that affected meaning', grow:'practice building simple, accurate sentences before attempting complex ones'},
+    3:{have:'used mostly simple, often incorrect sentence forms with frequent errors that obscured meaning', grow:'practice basic sentence patterns slowly and check them for accuracy before adding complexity'},
+    2:{have:'shown little control of grammar, with errors that made the response very difficult to understand', grow:'focus on mastering simple present/past sentence structures before attempting more'}
   }}
 ];
 const SPEAKING_CRITERIA = [
@@ -2072,7 +2080,9 @@ const SPEAKING_CRITERIA = [
     7:{have:'spoken at length without much noticeable effort, with occasional hesitation', grow:'reduce hesitation when searching for language on less familiar topics'},
     6:{have:'been willing to speak at length, though coherence dropped at times', grow:'practice organising your ideas before speaking to keep coherence steady'},
     5:{have:'managed to keep going, relying on repetition and self-correction', grow:'work on speaking in longer, more connected stretches without pausing'},
-    4:{have:'hesitated frequently and sometimes had to abandon or rephrase ideas', grow:'practice speaking regularly on familiar topics to build confidence and flow'}
+    4:{have:'hesitated frequently and sometimes had to abandon or rephrase ideas', grow:'practice speaking regularly on familiar topics to build confidence and flow'},
+    3:{have:'spoken with long pauses and considerable difficulty maintaining a flow of speech', grow:'practice speaking in short, simple bursts on very familiar topics to build fluency'},
+    2:{have:'struggled to produce more than isolated words or phrases with long silences', grow:'build confidence with basic everyday phrases before attempting longer answers'}
   }},
   {key:'LR', label:'Lexical Resource', bands:{
     9:{have:'used precise, natural, idiomatic vocabulary across a wide range of topics', grow:'keep exploring idiomatic and topic-specific vocabulary in new contexts'},
@@ -2080,7 +2090,9 @@ const SPEAKING_CRITERIA = [
     7:{have:'used flexible vocabulary to discuss a range of topics, with some inappropriate choices', grow:'work on precision so word choice feels natural in every context'},
     6:{have:'used sufficient vocabulary, with some circumlocution and inappropriate choices', grow:'build topic-specific vocabulary to avoid describing around words you don’t know'},
     5:{have:'used limited vocabulary for less familiar topics, with noticeable difficulty', grow:'practice discussing unfamiliar topics using simple, accurate vocabulary'},
-    4:{have:'used only basic vocabulary with limited ability to discuss unfamiliar topics', grow:'build a stronger everyday vocabulary through regular listening and speaking practice'}
+    4:{have:'used only basic vocabulary with limited ability to discuss unfamiliar topics', grow:'build a stronger everyday vocabulary through regular listening and speaking practice'},
+    3:{have:'used a very limited vocabulary that often failed to convey the intended meaning', grow:'practice describing everyday objects and situations using simple, familiar words'},
+    2:{have:'used only isolated words with little ability to communicate beyond basic needs', grow:'focus on building a small set of everyday vocabulary and practising it often'}
   }},
   {key:'GRA', label:'Grammatical Range & Accuracy', bands:{
     9:{have:'used a wide range of structures naturally and accurately', grow:'maintain this accuracy as you take on more complex speaking tasks'},
@@ -2088,7 +2100,9 @@ const SPEAKING_CRITERIA = [
     7:{have:'used a mix of simple and complex structures with good control', grow:'increase accuracy and range when using complex spoken structures'},
     6:{have:'used a mix of simple and complex structures but with limited flexibility', grow:'practice complex structures until they come out accurately without much thought'},
     5:{have:'used mostly basic sentence forms with limited complex structures', grow:'practice forming complex sentences slowly, then work on speed and accuracy'},
-    4:{have:'used only basic sentence forms with frequent errors', grow:'practice basic accurate sentence patterns before adding complexity'}
+    4:{have:'used only basic sentence forms with frequent errors', grow:'practice basic accurate sentence patterns before adding complexity'},
+    3:{have:'used only basic sentence forms with frequent errors that affected understanding', grow:'practice simple present and past tense sentences until they become automatic'},
+    2:{have:'shown little grammatical control, making it hard to understand most responses', grow:'start with very short, simple sentences and build accuracy before adding length'}
   }},
   {key:'PRON', label:'Pronunciation', bands:{
     9:{have:'used a full range of pronunciation features with precision and subtlety', grow:'keep refining subtle features like intonation for even more natural delivery'},
@@ -2096,11 +2110,13 @@ const SPEAKING_CRITERIA = [
     7:{have:'used a good range of pronunciation features, with occasional breakdowns in clarity', grow:'work on the specific sounds or patterns that occasionally reduce clarity'},
     6:{have:'used a range of pronunciation features, though control was inconsistent', grow:'practice word and sentence stress to sound clearer more consistently'},
     5:{have:'used a limited range of features, with mispronunciations reducing clarity at times', grow:'focus on the sounds that most often affect your clarity and practice them directly'},
-    4:{have:'shown strong first-language influence that caused strain for the listener', grow:'work with a pronunciation coach or app on the specific sounds that differ most from English'}
+    4:{have:'shown strong first-language influence that caused strain for the listener', grow:'work with a pronunciation coach or app on the specific sounds that differ most from English'},
+    3:{have:'shown pronunciation that was difficult to understand for much of the response', grow:'work on basic word stress and clear vowel/consonant sounds with a coach or app'},
+    2:{have:'been very difficult to understand due to limited control of pronunciation', grow:'focus on the most frequent sounds that differ from your first language, one at a time'}
   }}
 ];
 function bandOptionsHTML(criterion, current){
-  const bands = [9,8,7,6,5,4];
+  const bands = [9,8,7,6,5,4,3,2];
   return `<option value="">Choose band</option>` + bands.map(b=>
     `<option value="${b}" ${String(current)===String(b)?'selected':''}>Band ${b}</option>`
   ).join('');
@@ -2130,9 +2146,15 @@ function computeOverallWritingBand(t1,t2){
 function computeSpeakingBand(criteriaScores){
   return computeTaskBand(criteriaScores);
 }
+// Averages whichever of the four skills actually have a band — a skill
+// that's missing (e.g. Writing/Speaking not graded yet, or a technical
+// issue meant a section never got recorded) is simply left out of the
+// average rather than treated as a zero or blocking the overall score.
 function computeOverallScore(lBand, rBand, wBand, sBand){
-  if([lBand,rBand,wBand,sBand].some(v=>v===null || v===undefined)) return null;
-  return roundToHalfBand((lBand+rBand+wBand+sBand)/4);
+  const vals = [lBand, rBand, wBand, sBand].filter(v=>v!==null && v!==undefined);
+  if(vals.length===0) return null;
+  const avg = vals.reduce((a,b)=>a+b,0)/vals.length;
+  return roundToHalfBand(avg);
 }
 
 function renderTimerTopbar(student, key){
@@ -2906,7 +2928,11 @@ function renderGradingPage(student){
       <div class="score-box"><div class="band">${sBand!==null?sBand:'—'}</div><span class="cefr">${cefrFromBand(sBand)}</span><div class="lbl2">Speaking</div></div>
       <div class="score-box score-box-overall"><div class="band">${overallScore!==null?overallScore:'—'}</div><span class="cefr">${cefrFromBand(overallScore)}</span><div class="lbl2">Overall Band Score</div></div>
     </div>
-    ${overallScore===null ? `<p class="muted no-print" style="font-size:12px;margin-top:8px;">Overall Band Score will appear once all Writing &amp; Speaking criteria are scored.</p>` : ''}
+    ${overallScore===null
+      ? `<p class="muted no-print" style="font-size:12px;margin-top:8px;">Overall Band Score will appear once at least one skill has a band.</p>`
+      : (effLBand===null||effRBand===null||wOverall===null||sBand===null)
+        ? `<p class="muted no-print" style="font-size:12px;margin-top:8px;">Overall Band Score is averaged from whichever skills have been scored so far (some are still missing above).</p>`
+        : ''}
     <p class="muted" style="font-size:11.5px;margin-top:8px;">*Band scores are indicative, converted from the raw-score table / teacher rubric — they may differ from an official IELTS band score.</p>
 
     <hr>
