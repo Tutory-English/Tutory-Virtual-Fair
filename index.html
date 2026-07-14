@@ -2361,6 +2361,19 @@ function openGrading(email){
   saveState();
   render();
 }
+// Lets the admin jump straight into edit mode from the dashboard table's
+// "Edit Review" button, instead of having to open the report first and then
+// click "Edit Result" as a second step.
+function adminEditReviewFromTable(email){
+  const student = getStudent(email);
+  if(!student) return;
+  ensureGrading(student);
+  student.grading.locked = false;
+  state.adminReviewingEmail = email;
+  saveState();
+  syncStudentNow(email);
+  render();
+}
 function closeGrading(){
   const email = state.adminReviewingEmail;
   state.adminReviewingEmail = null;
@@ -2532,7 +2545,7 @@ function renderAdmin(){
     </div>
     <table>
       <thead><tr>
-        <th>Name</th><th>Email</th><th>Login</th><th>Listening</th><th>Reading</th><th>Writing</th><th>Review</th><th></th>
+        <th>Name</th><th>Email</th><th>Login</th><th>Review</th><th></th>
       </tr></thead>
       <tbody id="studentsTableBody">
         ${students.map(s=>`
@@ -2540,23 +2553,17 @@ function renderAdmin(){
             <td>${esc(s.name)}</td>
             <td>${esc(s.email)}</td>
             <td>${new Date(s.loginTime).toLocaleTimeString()}</td>
-            ${SECTION_ORDER.map(key=>{
-              const sec = s.sections[key];
-              const timer = sec.status==='in_progress' ? `<div class="muted" id="rem-${key}-${s.email}">${formatTime(Math.max(0,sectionRemaining(s,key)))}</div>` : '';
-              return `<td>${statusBadge(sec.status)}${timer}</td>`;
-            }).join('')}
             <td>
-              <button class="btn-secondary btn-sm" onclick="openGrading('${s.email}')">📝 Review</button>
-              ${!allSectionsDone(s)
-                ? `<div class="muted" style="font-size:11px;margin-top:3px;">⚠️ not all sections locked yet</div>`
-                : s.grading.reportSent
-                  ? `<div style="margin-top:4px;"><span class="pill pill-submitted" style="font-size:11px;">✅ DONE</span></div>`
-                  : s.grading.locked
-                    ? `<div style="margin-top:4px;">
-                        <button class="btn-outline btn-sm" style="font-size:11px;padding:2px 8px;" onclick="openGrading('${s.email}')">📤 Ready to Share</button>
-                        ${!s.phone ? `<div class="muted" style="font-size:10.5px;margin-top:2px;">⚠️ WA number still empty</div>` : ''}
-                      </div>`
-                    : ''}
+              ${s.grading.locked
+                ? `<div style="display:flex;flex-direction:column;gap:4px;align-items:flex-start;">
+                      ${s.grading.reportSent
+                        ? `<span class="pill pill-submitted" style="font-size:11px;">✅ Done</span>`
+                        : `<button class="btn-primary btn-sm" onclick="openGrading('${s.email}')">📤 Ready to Share</button>`}
+                      <button class="btn-outline btn-sm" onclick="adminEditReviewFromTable('${s.email}')">✏️ Edit Review</button>
+                      ${(!s.phone && !s.grading.reportSent) ? `<div class="muted" style="font-size:10.5px;">⚠️ WA number still empty</div>` : ''}
+                    </div>`
+                : `<button class="btn-secondary btn-sm" onclick="openGrading('${s.email}')">📝 Review</button>
+                   ${!allSectionsDone(s) ? `<div class="muted" style="font-size:11px;margin-top:3px;">⚠️ not all sections locked yet</div>` : ''}`}
             </td>
             <td><button class="btn-outline btn-sm" title="Delete this student's session/answers" onclick="adminDeleteSession('${s.email}','${esc(s.name)}')">🗑️</button></td>
           </tr>`).join('')}
